@@ -5,12 +5,16 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { StrictMode, useEffect } from 'react'
 import { create } from 'zustand'
 
-afterEach(() => {
+beforeEach(() => {
+    jest.useFakeTimers()
+
     expect(jest.getTimerCount()).toBe(0)
 })
 
-beforeEach(() => {
+afterEach(() => {
     expect(jest.getTimerCount()).toBe(0)
+
+    jest.useRealTimers()
 })
 
 test('简单的 route 测试，用来解释说明基本的测试结构', async () => {

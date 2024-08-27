@@ -5,10 +5,6 @@ const config: Config = {
 
     testMatch: ['**/__tests__/**/*.spec.(tsx|ts)'],
 
-    fakeTimers: {
-        enableGlobally: true,
-    },
-
     transform: {
         '^.+\\.tsx?$': [
             'ts-jest', {

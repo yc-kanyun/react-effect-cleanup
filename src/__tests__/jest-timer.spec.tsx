@@ -5,11 +5,13 @@ async function sleep(time: number) {
 }
 
 beforeEach(() => {
+    jest.useFakeTimers()
     expect(jest.getTimerCount()).toBe(0)
 })
 
 afterEach(() => {
     expect(jest.getTimerCount()).toBe(0)
+    jest.useRealTimers()
 })
 
 test('jest timer', async () => {
