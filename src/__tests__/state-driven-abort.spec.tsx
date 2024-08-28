@@ -222,7 +222,13 @@ test('泛化 abortContext，解决 state 驱动的异步取消问题', async () 
      * AbortSwitchWrapperFn 创造了一个 scope，这个 wrapper 会给被包裹的函数传递一个 abortContext，被 wrapper 包裹的 callback 在执行时，会 abort 之前的 AbortContext
      * 因为是互斥关系，所以命名成 SwitchWrapper，参考了 rxjs 中的 switchMap
      */
-    type AbortSwitchWrapperFn<T> = (cb: (abortContext: AbortContext, ...args: any[]) => Promise<T>) => () => Promise<T>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type AnyFunc = (...args: any[]) => any;
+    type AbortSwitchCallback<Func extends AnyFunc> = (
+        abortContext: AbortContext,
+        ...args: Parameters<Func>
+    ) => ReturnType<Func>;
+    type AbortSwitchWrapperFn<Func extends AnyFunc> = (cb: AbortSwitchCallback<Func>) => Func
 
     interface AbortContext {
         aborted: AbortedFn,
@@ -234,7 +240,7 @@ test('泛化 abortContext，解决 state 驱动的异步取消问题', async () 
          * 
          * @returns 被 AbortContext 所管理的 switchWrapper
          */
-        createAbortSwitchWrapper: <T>() => AbortSwitchWrapperFn<T>,
+        createAbortSwitchWrapper: <Func extends AnyFunc>() => AbortSwitchWrapperFn<Func>,
     }
     interface AbortController extends AbortContext {
         abort: AbortFn,
@@ -260,7 +266,7 @@ test('泛化 abortContext，解决 state 驱动的异步取消问题', async () 
                 return { value: await promise, aborted }
             },
 
-            createAbortSwitchWrapper: () => {
+            createAbortSwitchWrapper: <Func extends AnyFunc>() => {
                 let currCtrl: AbortController | null = null;
                 cleanupCallbacks.push(() => {
                     if (currCtrl) {
@@ -269,15 +275,19 @@ test('泛化 abortContext，解决 state 驱动的异步取消问题', async () 
                     }
                 })
 
-                return (cb) => {
-                    return async function (...args) {
+                const retFunc: AbortSwitchWrapperFn<Func> = (cb: AbortSwitchCallback<Func>) => {
+                    return function (...args: Parameters<Func>): ReturnType<Func> {
                         if (currCtrl) {
                             currCtrl.abort();
                         }
                         currCtrl = createAbortedController();
-                        return await cb(currCtrl, ...args)
-                    }
+
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                        return cb(currCtrl, ...args)
+                    } as Func
                 }
+
+                return retFunc;
             }
         }
     }
@@ -415,13 +425,26 @@ test('验证在页面切换时，异步任务也可以得到清理', async () =>
     type AbortedFn = () => boolean;
     type AbortFn = () => void;
     type CleanupFn = () => void;
-    type AbortSwitchWrapperFn<T> = (cb: (abortContext: AbortContext, ...args: any[]) => Promise<T>) => () => Promise<T>
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type AnyFunc = (...args: any[]) => any;
+    type AbortSwitchCallback<Func extends AnyFunc> = (
+        abortContext: AbortContext,
+        ...args: Parameters<Func>
+    ) => ReturnType<Func>;
+    type AbortSwitchWrapperFn<Func extends AnyFunc> = (cb: AbortSwitchCallback<Func>) => Func
 
     interface AbortContext {
         aborted: AbortedFn,
         onAbort(cleanup: CleanupFn): void,
         race<T>(promise: Promise<T>): Promise<{ value: T, aborted: boolean }>,
-        createAbortSwitchWrapper: <T>() => AbortSwitchWrapperFn<T>,
+
+        /**
+         * 返回一个子 switchContext，当前 abortContext 被 abort 时，也会 abort 子 switchContext
+         * 
+         * @returns 被 AbortContext 所管理的 switchWrapper
+         */
+        createAbortSwitchWrapper: <Func extends AnyFunc>() => AbortSwitchWrapperFn<Func>,
     }
     interface AbortController extends AbortContext {
         abort: AbortFn,
@@ -447,7 +470,7 @@ test('验证在页面切换时，异步任务也可以得到清理', async () =>
                 return { value: await promise, aborted }
             },
 
-            createAbortSwitchWrapper: () => {
+            createAbortSwitchWrapper: <Func extends AnyFunc>() => {
                 let currCtrl: AbortController | null = null;
                 cleanupCallbacks.push(() => {
                     if (currCtrl) {
@@ -456,19 +479,22 @@ test('验证在页面切换时，异步任务也可以得到清理', async () =>
                     }
                 })
 
-                return (cb) => {
-                    return async function (...args) {
+                const retFunc: AbortSwitchWrapperFn<Func> = (cb: AbortSwitchCallback<Func>) => {
+                    return function (...args: Parameters<Func>): ReturnType<Func> {
                         if (currCtrl) {
                             currCtrl.abort();
                         }
                         currCtrl = createAbortedController();
-                        return await cb(currCtrl, ...args)
-                    }
+
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                        return cb(currCtrl, ...args)
+                    } as Func
                 }
+
+                return retFunc;
             }
         }
     }
-
     enum RoomStatus {
         Idle,
         Connecting,
