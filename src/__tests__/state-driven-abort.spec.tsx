@@ -192,22 +192,25 @@ test('同一个页面内异步任务得不到清理的例子', async () => {
             delay: null,
         });
 
-        expect(await screen.findByText('RoomStatus: Idle')).toBeInTheDocument()
+        await actTimers()
+        expect(screen.getByText('RoomStatus: Idle')).toBeInTheDocument()
+
         // When: 点击 toggleRoom 按钮打开房间，开始进行连接
         await user.click(screen.getByText('connect'))
 
         // Then: 房间状态变成连接中 / Connecting
-        expect(await screen.findByText('RoomStatus: Connecting')).toBeInTheDocument()
+        expect(screen.getByText('RoomStatus: Connecting')).toBeInTheDocument()
 
         // When: 在 Connecting 状态下，点击按钮关闭 Room
         await user.click(screen.getByText('disconnect'))
 
         // Then: 此时房间状态应该是 Idle
-        expect(await screen.findByText('RoomStatus: Idle')).toBeInTheDocument()
+        expect(screen.getByText('RoomStatus: Idle')).toBeInTheDocument()
     }
 
+    await actTimers()
     // Then: 可以发现 toggleRoom 后，前一个 timer 仍然执行了导致状态变为已连接
-    expect(await screen.findByText('RoomStatus: Connected')).toBeInTheDocument()
+    expect(screen.getByText('RoomStatus: Connected')).toBeInTheDocument()
 })
 
 test('泛化 abortContext，解决 state 驱动的异步取消问题', async () => {
@@ -400,32 +403,33 @@ test('泛化 abortContext，解决 state 驱动的异步取消问题', async () 
             <RouterProvider router={router} />
         </StrictMode>)
 
-        expect(await screen.findByText('RoomStatus: Idle')).toBeInTheDocument()
+        await actTimers();
+        expect(screen.getByText('RoomStatus: Idle')).toBeInTheDocument()
 
         const user = userEvent.setup({
             delay: null,
         })
 
         await user.click(screen.getByText('connect'))
-        expect(await screen.findByText('RoomStatus: Connecting')).toBeInTheDocument()
+        expect(screen.getByText('RoomStatus: Connecting')).toBeInTheDocument()
 
         await user.click(screen.getByText('disconnect'))
-        expect(await screen.findByText('RoomStatus: Idle')).toBeInTheDocument()
-
-        // When: 清空 timer 队列
-        await actTimers()
+        expect(screen.getByText('RoomStatus: Idle')).toBeInTheDocument()
     }
 
+
+    // When: 清空 timer 队列
     // 下面的断言和上一个测试有区别，这是我们期望的结果
     // Then: 房间状态是 Idle，因为 Connecting 的回调被取消了
-    expect(await screen.findByText('RoomStatus: Idle')).toBeInTheDocument()
+    await actTimers()
+    expect(screen.getByText('RoomStatus: Idle')).toBeInTheDocument()
 })
 
 test('验证在页面切换时，异步任务也可以得到清理', async () => {
     type AbortedFn = () => boolean;
     type AbortFn = () => void;
     type CleanupFn = () => void;
-    
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     type AnyFunc = (...args: any[]) => any;
     type AbortSwitchCallback<Func extends AnyFunc> = (
