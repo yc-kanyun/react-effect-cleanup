@@ -299,7 +299,7 @@ type AbortSwitchWrapperFn<Func extends AnyFunc> = (cb: AbortSwitchCallback<Func>
 
 interface AbortContext {
     aborted: AbortedFn,
-    onAbort(cleanup: CleanupFn): void,
+    onAbort(cleanup: CleanupFn): () => void,
     race<T>(promise: Promise<T>): Promise<{ value: T, aborted: boolean }>,
 
     /**
@@ -368,7 +368,20 @@ function createAbortedController(label: string): AbortController {
         aborted: () => aborted,
 
         onAbort: (cleanup: CleanupFn) => {
-            cleanupCallbacks.push(cleanup);
+            const wrappedCleanup = () => {
+                cleanup();
+                removeCleanup();
+            }
+
+            const removeCleanup = () => {
+                const idx = cleanupCallbacks.indexOf(wrappedCleanup);
+                if (idx >= 0) {
+                    cleanupCallbacks.splice(idx, 1)
+                }
+            }
+
+            cleanupCallbacks.push(wrappedCleanup);
+            return wrappedCleanup;
         },
 
         race: async function <T>(promise: Promise<T>) {
@@ -765,4 +778,187 @@ test('用 AbortController + Effect', async () => {
     expect(traceAbortRun).toBeCalledTimes(2)
     expect(traceAbortRun).toHaveBeenNthCalledWith(1, LABEL_NODE)
     expect(traceAbortRun).toHaveBeenNthCalledWith(2, LABEL_PARENT)
+})
+
+/**
+ * 为什么这么复杂？一定需要一个 tree context，而不是一层 root context？
+ * A: 因为 GUI 界面大部分都是 hiraichy 的，比如进编辑器，打开一个分享弹窗，分享弹窗的副作用既要在关闭分享弹窗时清理，也需要在 history back 返回工作台时清理，同时，如果先关了分享弹窗，再返回工作台。那么分享弹窗的副作用不应该在返回工作台时再次清理
+ * 
+ * 为什么副作用的清理过程不能是幂等的?
+ * A: 很容易举一些例子。比如副作用是全局计数器 +1，那么清理过程就是 -1。如果清理过程是幂等的，那么在多次清理时，计数器就会出现负数。再比如，副作用是在内存中 alloc 一块区域，那么清理过程就是 free 这块区域，显然这个清理过程重复执行就会出现 double free 的问题
+ * 
+ * 下面这个例子来展示为什么必须要一个 hiraichy tree context
+ */
+test('展示子组件必须有自己的 abort context，否则无法清理副作用', async () => {
+    let globalId = 0; // 一个全局计数器，来模拟一个副作用
+
+    /**
+     * Child 接收一个 abort context，但不创建自己的
+     * 
+     * @param param0 
+     */
+    function Child({ abort }: { abort: AbortContext }) {
+        // 这里套在 useEffect 里，但在不开严格模式的情况下，这样写就足够展示问题了
+        globalId++;
+
+        // 这里把清理过程绑定在了 root context 上，但这样和 effect 就没有任何关系了，如果 parent 不清理，那么这里的清理代码就不会被执行
+        abort.onAbort(() => {
+            globalId--;
+        });
+
+        return <div>Node</div>;
+    }
+
+    function Parent() {
+        const [showChild, setShowChild] = useState(true);
+        const abort = useAbort('ROOT')
+        if (!abort) {
+            return;
+        }
+
+        return <>
+            {showChild && <Child abort={abort} />}
+            <button onClick={() => { setShowChild(false) }}>Close</button>
+        </>
+    }
+
+    const user = userEvent.setup({
+        delay: null
+    })
+
+    // 渲染前的初始状态
+    expect(globalId).toBe(0)
+
+    render(<Parent />)
+
+    // Child 渲染导致了副作用
+    expect(globalId).toBe(1)
+
+    // 点击 Close 时 Child 被删除
+    await user.click(screen.getByText('Close'))
+
+    // 副作用仍然存在
+    expect(globalId).toBe(1)
+})
+
+test('在 effect 里和 abort 里都清理副作用，展示 double cleanup 的问题', async () => {
+    let globalId = 0; // 一个全局计数器，来模拟一个副作用
+
+    function Child({ abort }: { abort: AbortContext }) {
+        useEffect(() => {
+            globalId++;
+            const cleanup = () => {
+                globalId--;
+            }
+            abort.onAbort(cleanup);
+
+            return () => {
+                cleanup()
+            }
+        }, [])
+
+        return <div>Node</div>;
+    }
+
+    function Parent() {
+        const [showChild, setShowChild] = useState(true);
+        const abort = useAbort('ROOT')
+        if (!abort) {
+            return;
+        }
+
+        return <>
+            {showChild && <Child abort={abort} />}
+            <button onClick={() => { setShowChild(false) }}>Close</button>
+        </>
+    }
+
+    const user = userEvent.setup({
+        delay: null
+    })
+
+    // 渲染前的初始状态
+    expect(globalId).toBe(0)
+
+    render(<Parent />)
+
+    // Child 渲染导致了副作用
+    expect(globalId).toBe(1)
+
+    // 点击 Close 时 Child 被删除
+    await user.click(screen.getByText('Close'))
+
+    // 副作用被 Child 的 effect 清理
+    expect(globalId).toBe(0)
+
+    cleanup() // unmount 所有的组件
+
+    // double cleanup 导致状态没有正确重置
+    expect(globalId).toBe(-1)
+})
+
+/**
+ * 下面的测试尝试在不使用 hiraichy tree context 的情况下，解决 double cleanup 的问题
+ * 思路是 abort context 的 onAbort 返回一个函数，这个函数在执行时不仅会执行 cleanup，还会把 cleanup 从 abort context 中移除
+ * 这样在 abort context 在 abort 时，就不会重复执行 cleanup 了
+ * 
+ * 但本质上，这只是通过一个队列，对一个树状结构的先序遍历进行了模拟。这个方法的困难点在于，onAbort 的返回值必须在 scope 中存下来，并且在 effect 的 cleanup 中自己编排顺序，这个顺序是手工维护的，而且容易遗漏
+ * 这跟最开始在 service 中维护一个 destroy 没有区别
+ */
+test('尝试清理 cleanup 产生的副作用', async () => {
+    let globalId = 0; // 一个全局计数器，来模拟一个副作用
+
+    function Child({ abort }: { abort: AbortContext }) {
+        useEffect(() => {
+            globalId++;
+            /**
+             * cleanup 方法不仅会执行清理，还会把 cleanup 从 abort context 中移除
+             */
+            const cleanup = abort.onAbort(() => {
+                globalId--;
+            });
+
+            return () => {
+                cleanup()
+            }
+        }, [])
+
+        return <div>Node</div>;
+    }
+
+    function Parent() {
+        const [showChild, setShowChild] = useState(true);
+        const abort = useAbort('ROOT')
+        if (!abort) {
+            return;
+        }
+
+        return <>
+            {showChild && <Child abort={abort} />}
+            <button onClick={() => { setShowChild(false) }}>Close</button>
+        </>
+    }
+
+    const user = userEvent.setup({
+        delay: null
+    })
+
+    // 渲染前的初始状态
+    expect(globalId).toBe(0)
+
+    render(<Parent />)
+
+    // Child 渲染导致了副作用
+    expect(globalId).toBe(1)
+
+    // 点击 Close 时 Child 被删除
+    await user.click(screen.getByText('Close'))
+
+    // 副作用被 Child 的 effect 清理
+    expect(globalId).toBe(0)
+
+    cleanup() // unmount 所有的组件
+
+    // 可以看到 double cleanup 问题也被解决了
+    expect(globalId).toBe(0)
 })
