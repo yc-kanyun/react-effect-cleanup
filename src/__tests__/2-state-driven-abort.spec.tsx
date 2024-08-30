@@ -63,6 +63,23 @@ test('同一个页面内异步任务得不到清理的例子', async () => {
             onAbort: (cleanup: CleanupFn) => {
                 cleanupCallbacks.push(cleanup);
             },
+
+            /**
+             * race 是一个一个 helper util，它将如下代码用更直观的方式表达
+             * ```
+             *   const ret = await somePromise;
+             *   if (abort.aborted()) {
+             *       return;
+             *   }
+             * ```
+             * 改成写
+             * ```
+             *   const { value, aborted } = await abort.race(somePromise)
+             *   if (aborted) {
+             *       return;
+             *   }
+             * ```
+             */
             race: async function <T>(promise: Promise<T>) {
                 return { value: await promise, aborted }
             }
@@ -96,6 +113,12 @@ test('同一个页面内异步任务得不到清理的例子', async () => {
         disconnect: () => void
     }
 
+    /**
+     * 这里用了 zustand，但实际上我们就当它是一个全局单例 service，拥有 connect 和 disconnect 两个方法，并且有一个全局状态 status 来表示房间状态
+     * connect 会立即把状态改成 Connecting，然后在 delay ms 之后将状态改为 Connected
+     * disconnect 会立即把状态改成 Idle
+     * 初始状态是 Idle
+     */
     function createRoomStore() {
         return create<RoomStore>(set => {
             return {
@@ -152,8 +175,10 @@ test('同一个页面内异步任务得不到清理的例子', async () => {
         </>
     }
 
-    /*
-      setupRoomPage 方法被 router loader 加载，在这个方法中，我们订阅了 viewState 的变化，来控制调用 connect / disconnect
+    /**
+     * setupRoomPage 方法被 router loader 加载，在这个方法中，我们订阅了 viewState 的变化，来控制调用 connect / disconnect
+     * 这里我们跳过了用 useEffect 来 watch 变化的步骤，直接在 react 外部发送这个请求
+     * 后面的测试中，我们会解释为什么 useEffect 做这件事情会有很多坑
      */
     function setupRoomPage(abortContext: AbortContext): Promise<null> {
         abortContext.onAbort(viewStore.subscribe(state => {
@@ -184,15 +209,16 @@ test('同一个页面内异步任务得不到清理的例子', async () => {
         render(<StrictMode>
             <RouterProvider router={router} />
         </StrictMode>)
+
+        await actTimers()
     }
+
+    const user = userEvent.setup({
+        delay: null,
+    });
 
     // When: 连续两次点击 toggleRoom 按钮
     {
-        const user = userEvent.setup({
-            delay: null,
-        });
-
-        await actTimers()
         expect(screen.getByText('RoomStatus: Idle')).toBeInTheDocument()
 
         // When: 点击 toggleRoom 按钮打开房间，开始进行连接
@@ -240,6 +266,7 @@ test('泛化 abortContext，解决 state 驱动的异步取消问题', async () 
 
         /**
          * 返回一个子 switchContext，当前 abortContext 被 abort 时，也会 abort 子 switchContext
+         * 这个思路来自于上一个测试中，page 级别的 switch context 能力。我们把它泛化成一个通用能力
          * 
          * @returns 被 AbortContext 所管理的 switchWrapper
          */
@@ -399,16 +426,16 @@ test('泛化 abortContext，解决 state 驱动的异步取消问题', async () 
             loader: rootSwitchWrapper(setupRoomPage)
         }])
 
+        const user = userEvent.setup({
+            delay: null,
+        })
+
         render(<StrictMode>
             <RouterProvider router={router} />
         </StrictMode>)
 
         await actTimers();
         expect(screen.getByText('RoomStatus: Idle')).toBeInTheDocument()
-
-        const user = userEvent.setup({
-            delay: null,
-        })
 
         await user.click(screen.getByText('connect'))
         expect(screen.getByText('RoomStatus: Connecting')).toBeInTheDocument()
@@ -621,3 +648,14 @@ test('验证在页面切换时，异步任务也可以得到清理', async () =>
     expect(screen.getByText('Foo')).toBeInTheDocument()
     expect(roomStore.getState().status).toBe(RoomStatus.Idle)
 })
+
+/**
+ * 至此，我们扩大了 AbortController 的能力，它既可以清理 Page 上的副作用，也可以阻止 Page 下面子组件的异步任务执行。仔细观察我们的代码，我们会发现，AbortContext 是一个
+ * hierarchy 的树形结构，而且我们很自然地让父 controller 清理时，先清理了子 controller。但我们还没有思考过以下问题
+ * 1. 为什么是一个树形结构，而不是一个链表结构
+ * 2. 应该先清理父节点还是子节点
+ * 3. AbortContext 的树形结构和组件树形结构有什么关系
+ * 4. 为什么不用 useEffect
+ * 
+ * 这些问题，我们在下一个测试中讨论
+ */

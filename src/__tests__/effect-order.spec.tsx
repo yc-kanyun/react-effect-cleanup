@@ -1,10 +1,9 @@
 import '@testing-library/jest-dom/jest-globals'
 import { test, expect, jest } from "@jest/globals"
-import { render, screen } from "@testing-library/react"
-import { useEffect, useState } from 'react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, render } from "@testing-library/react"
+import { useEffect } from 'react'
 
-test('Parent/Child 的 effect 执行和清理过程测试', async () => {
+test('Parent/Child 的 effect 执行和清理过程测试', () => {
     const traceEffect = jest.fn();
     const traceEffectCleanup = jest.fn();
     function Child() {
@@ -14,10 +13,10 @@ test('Parent/Child 的 effect 执行和清理过程测试', async () => {
                 traceEffectCleanup('child')
             }
         }, [])
-        
+
         return <></>
     }
-    
+
     function Parent() {
         traceEffect('parent')
         useEffect(() => {
@@ -29,20 +28,9 @@ test('Parent/Child 的 effect 执行和清理过程测试', async () => {
         return <Child />
     }
 
-    function Page() {
-        const [show, setShow] = useState(true);
+    render(<Parent />)
 
-        return <>
-            {show && <Parent />}
-            <button onClick={() => { setShow(false) }}>hide</button>
-        </>
-    }
-
-    const user = userEvent.setup()
-
-    render(<Page />)
-
-    await user.click(screen.getByText('hide'));
+    cleanup()
 
     /**
      * Parent 的 effect 先执行

@@ -11,7 +11,7 @@ afterEach(() => {
     jest.useRealTimers()
 })
 
-test('Parent/Child 的 effect 执行和清理过程测试', async () => {
+test('Parent/Child 的 effect 执行和清理过程测试', () => {
     const traceCleanup = jest.fn()
     function Node() {
         useEffect(() => {

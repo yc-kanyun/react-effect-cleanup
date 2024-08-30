@@ -15,11 +15,15 @@ afterEach(() => {
     jest.useRealTimers()
 })
 
-/*
- 下面这个例子展示了 effect 中没有清理异步任务存在的问题
- 在更后面的测试中，我们尝试提出多种解决方案来修复这个问题
+/**
+ * 在上一个测试中，我们所有的副作用创建和清理都是在一个外部状态管理库中进行的
+ * 我们始终没有回答一个问题，为什么不用 effect 来管理副作用和清理副作用？
+ * 在这个测试中，我们先忘掉外部状态管理库，忘掉我们写完的 AbortController，回到 React 的原生状态管理机制，看看 effect 是如何管理副作用的
+ * 
+ * 下面这个 case 展示了 effect 中没有清理异步任务存在的问题
+ * 在更后面的测试中，我们尝试提出多种解决方案来修复这个问题
  */
-test('在 effect 中驱动一个外部异步任务的例子', async () => {
+test('在 effect 中驱动一个外部异步任务的例子', () => {
     const traceClockTick: (label: string) => void = jest.fn();
     /**
      * 这里我们用 setInterval 来模拟一个外部驱动的异步任务，实际情况下可能是 websocket 或者其他异步任务。这些任务可能不支持 
@@ -42,30 +46,11 @@ test('在 effect 中驱动一个外部异步任务的例子', async () => {
         return <div>Clock Tick</div>
     }
 
-    /**
-     * ClockWrapper 对 Clock 进行了一次包裹，这样我们可以模拟 Clock 在 unmount 后异步任务和回调仍然继续执行的情况
-     * 
-     * @returns 
-     */
-    function ClockWrapper() {
-        const [showClock, setShowClock] = useState(false)
-
-        return <>
-            <button onClick={() => { setShowClock(!showClock) }}>{showClock ? 'Close' : 'Open'}</button>
-            {showClock && <Clock />}
-        </>
-    }
-
-    const user = userEvent.setup({
-        delay: null
-    })
     // Given: 用户打开 Clock，外部异步任务正常执行中
     {
         render(
-            <ClockWrapper />
+            <Clock />
         )
-
-        await user.click(screen.getByText('Open'))
 
         expect(screen.getByText("Clock Tick")).toBeInTheDocument()
         expect(traceClockTick).toBeCalledTimes(0)
@@ -77,7 +62,7 @@ test('在 effect 中驱动一个外部异步任务的例子', async () => {
     }
 
     // When: 用户关闭了 Clock
-    await user.click(screen.getByText('Close'))
+    cleanup()
 
     // Then: Clock 仍然被执行了，因为 effect 中开启的 interval 任务并没有被清理。我们的目的是在用户关闭 Clock 时，停止 Clock 的执行
     jest.runOnlyPendingTimers()
@@ -92,7 +77,7 @@ test('在 effect 中驱动一个外部异步任务的例子', async () => {
 第一种修复问题的思路是外部异步任务支持 destroy，由 component 来调用 destroy 来清理
 这种方法是 React 中最常见的清理副作用的方法
  */
-test('在 effect 中清理外部副作用', async () => {
+test('在 effect 中清理外部副作用', () => {
     const traceClockTick: (label: string) => void = jest.fn();
 
     /**
@@ -127,26 +112,11 @@ test('在 effect 中清理外部副作用', async () => {
         return <div>Clock Tick</div>
     }
 
-    const user = userEvent.setup({
-        delay: null
-    })
-
     // Given: 用户打开 Clock，外部异步任务正常执行中
     {
-        function ClockWrapper() {
-            const [showClock, setShowClock] = useState(false)
-
-            return <>
-                <button onClick={() => { setShowClock(!showClock) }}>{showClock ? 'Close' : 'Open'}</button>
-                {showClock && <Clock />}
-            </>
-        }
-
         render(
-            <ClockWrapper />
+            <Clock />
         )
-
-        await user.click(screen.getByText('Open'))
 
         expect(screen.getByText("Clock Tick")).toBeInTheDocument()
         expect(traceClockTick).toBeCalledTimes(0)
@@ -158,7 +128,7 @@ test('在 effect 中清理外部副作用', async () => {
     }
 
     // When: 用户关闭了 Clock
-    await user.click(screen.getByText('Close'))
+    cleanup()
 
     // Then: Clock 不会继续被执行了
     jest.runOnlyPendingTimers()
@@ -167,10 +137,10 @@ test('在 effect 中清理外部副作用', async () => {
 })
 
 
-/*
-正确编写 destroy 方法是很困难的，它很容易写错，尤其是当我们执行的外部状态比较复杂时
+/**
+ * 上面的方法可以 work，但实际情况下，正确编写 destroy 方法是很困难的，它很容易写错，尤其是当我们执行的外部状态比较复杂时
  */
-test('外部异步任务比较复杂时，destroy 的编写会非常困难且易错', async () => {
+test('外部异步任务比较复杂时，destroy 的编写会非常困难且易错', () => {
     const traceClockTick = jest.fn();
 
     /**
@@ -254,29 +224,16 @@ test('外部异步任务比较复杂时，destroy 的编写会非常困难且易
         return <div>Clock Tick</div>
     }
 
-    const user = userEvent.setup({
-        delay: null
-    })
-
-    function ClockWrapper() {
-        const [showClock, setShowClock] = useState(false)
-
-        return <>
-            <button onClick={() => { setShowClock(!showClock) }}>{showClock ? 'Close' : 'Open'}</button>
-            {showClock && <Clock />}
-        </>
-    }
-
     render(
-        <ClockWrapper />
+        <Clock />
     )
 
-    await user.click(screen.getByText('Open'))
     jest.runOnlyPendingTimers() // 创建 timer2
     jest.runOnlyPendingTimers() // 创建 timer3
     jest.runOnlyPendingTimers() // 创建 timer4
     jest.runOnlyPendingTimers() // 创建 timer5
-    await user.click(screen.getByText('Close'))
+
+    cleanup()
 
     // 这里可以看到还有一个 timer 存在于系统中
     // 这个 timer 在实际情况下，有可能没问题，有可能有问题
@@ -285,29 +242,19 @@ test('外部异步任务比较复杂时，destroy 的编写会非常困难且易
     jest.clearAllTimers()
 })
 
+/**
+ * 要解决 destroy 不好写的问题，一个思路是我们做依赖翻转，不由外部来调用 destroy，而是传递一个 AbortController 进去，由被调用方来决定自己要清理哪些副作用
+ * 
+ * 为了实现这一点，我们要把 Abort 机制加回来。这我们应该已经比较熟悉了
+ */
+
 type AbortedFn = () => boolean;
 type AbortFn = () => void;
 type CleanupFn = () => void;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyFunc = (...args: any[]) => any;
-type AbortSwitchCallback<Func extends AnyFunc> = (
-    abortContext: AbortContext,
-    ...args: Parameters<Func>
-) => ReturnType<Func>;
-type AbortSwitchWrapperFn<Func extends AnyFunc> = (cb: AbortSwitchCallback<Func>) => Func
-
 interface AbortContext {
     aborted: AbortedFn,
     onAbort(cleanup: CleanupFn): () => void,
-    race<T>(promise: Promise<T>): Promise<{ value: T, aborted: boolean }>,
-
-    /**
-     * 返回一个子 switchContext，当前 abortContext 被 abort 时，也会 abort 子 switchContext
-     * 
-     * @returns 被 AbortContext 所管理的 switchWrapper
-     */
-    createAbortSwitchWrapper: <Func extends AnyFunc>(childLabel: string) => AbortSwitchWrapperFn<Func>,
 
     /**
      * 返回一个子 controller, abortController 被 abort 时，也会 abort 子 controller
@@ -384,34 +331,6 @@ function createAbortedController(label: string): AbortController {
             return wrappedCleanup;
         },
 
-        race: async function <T>(promise: Promise<T>) {
-            return { value: await promise, aborted }
-        },
-
-        createAbortSwitchWrapper: <Func extends AnyFunc>(childLabel: string) => {
-            let currCtrl: AbortController | null = null;
-            cleanupCallbacks.push(() => {
-                if (currCtrl) {
-                    currCtrl.abort()
-                    currCtrl = null;
-                }
-            })
-
-            const retFunc: AbortSwitchWrapperFn<Func> = (cb: AbortSwitchCallback<Func>) => {
-                return function (...args: Parameters<Func>): ReturnType<Func> {
-                    if (currCtrl) {
-                        currCtrl.abort();
-                    }
-                    currCtrl = createChildController(childLabel);
-
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                    return cb(currCtrl, ...args)
-                } as Func
-            }
-
-            return retFunc;
-        },
-
         createController: (label: string) => {
             return createChildController(label);
         }
@@ -437,7 +356,7 @@ function useAbort(label: string, abortContext?: AbortContext): AbortContext | nu
 /**
  * 下面这个例子展示如何用 AbortController 来管理副作用的清理，AbortController 可以让创建副作用和清理副作用的地方尽可能地接近，这降低了编写清理方法的难度
  */
-test('用 AbortController 来管理副作用的清理，', async () => {
+test('用 AbortController 来管理副作用的清理，', () => {
     const traceClockTick = jest.fn();
 
     function timeout(cb: Parameters<typeof setTimeout>[0], ms: Parameters<typeof setTimeout>[1]): () => void {
@@ -484,26 +403,13 @@ test('用 AbortController 来管理副作用的清理，', async () => {
         return <div>Clock Tick</div>
     }
 
-    const user = userEvent.setup({
-        delay: null
-    })
-
-    function ClockWrapper() {
-        const [showClock, setShowClock] = useState(false)
-
-        return <>
-            <button onClick={() => { setShowClock(!showClock) }}>{showClock ? 'Close' : 'Open'}</button>
-            {showClock && <Clock />}
-        </>
-    }
-
     render(
-        <ClockWrapper />
+        <Clock />
     )
 
-    await user.click(screen.getByText('Open'))
     jest.runOnlyPendingTimers()
-    await user.click(screen.getByText('Close'))
+
+    cleanup()
 
     // 注意下面的代码，成功清理了所有的副作用
     expect(jest.getTimerCount()).toBe(0)
@@ -513,11 +419,7 @@ test('用 AbortController 来管理副作用的清理，', async () => {
  * 如果是父发起的清理任务，那么子的清理一定会被执行
  * 但如果在这之前子已经被清理了，那么父在清理时不应该再重复执行子的清理
  */
-test('AbortContext 不应该被重复清理，而且在父清理时，应该先清理所有子，最后清理父', async () => {
-    const user = userEvent.setup({
-        delay: null
-    })
-
+test('AbortContext 不应该被重复清理，而且在父清理时，应该先清理所有子，最后清理父', () => {
     const traceAbortRun = jest.fn();
 
     function stubSetup(abortContext: AbortContext) {
@@ -541,7 +443,7 @@ test('AbortContext 不应该被重复清理，而且在父清理时，应该先�
         return <div>Clock Tick</div>
     }
 
-    function NodeOuter() {
+    function Parent() {
         const abort = useAbort('PARENT');
 
         useEffect(() => {
@@ -563,24 +465,13 @@ test('AbortContext 不应该被重复清理，而且在父清理时，应该先�
         </>
     }
 
-    function Page() {
-        const [showNode, setShowNode] = useState(false)
-
-        return <>
-            <button onClick={() => { setShowNode(!showNode) }}>{showNode ? 'Close' : 'Open'}</button>
-            {showNode && <NodeOuter />}
-        </>
-    }
-
-
     render(
-        <Page />
+        <Parent />
     )
 
-    await user.click(screen.getByText('Open'))
     expect(screen.getByText('Clock Tick')).toBeInTheDocument()
 
-    await user.click(screen.getByText('Close'))
+    cleanup()
 
     // 这里 traceAbortRun 应该只被执行一次，子组件先被析构，所以父 context 析构时不应该重复执行子 context 的析构
     expect(traceAbortRun).toBeCalledTimes(2)
@@ -588,12 +479,12 @@ test('AbortContext 不应该被重复清理，而且在父清理时，应该先�
     expect(traceAbortRun).toHaveBeenNthCalledWith(2, 'outer')
 })
 
-/*
-这里展示 effect 中清理副作用的另一个问题
-effect 显然是 render event 驱动的，这可能会导致一些高开销的方法重复执行
-在这个例子中，我们增加 <StrictMode />，会发现我们创建了两个 ExternalClock 实例
+/**
+ * 这里展示 effect 中清理副作用的另一个问题
+ * effect 显然是 render event 驱动的，这可能会导致一些高开销的方法重复执行
+ * 在这个例子中，我们增加 <StrictMode />，会发现我们创建了两个 ExternalClock 实例
  */
-test('在 effect 中创建副作用可能因为渲染时间支付高昂的成本', async () => {
+test('在 effect 中创建副作用可能因为渲染时间支付高昂的成本', () => {
     const traceClockInit = jest.fn();
     const traceClockTick = jest.fn();
 
@@ -631,39 +522,24 @@ test('在 effect 中创建副作用可能因为渲染时间支付高昂的成本
         return <div>Clock Tick</div>
     }
 
-    const user = userEvent.setup({
-        delay: null
-    })
-
-    function ClockWrapper() {
-        const [showClock, setShowClock] = useState(false)
-
-        return <>
-            <button onClick={() => { setShowClock(!showClock) }}>{showClock ? 'Close' : 'Open'}</button>
-            {showClock && <Clock />}
-        </>
-    }
-
     render(
         <StrictMode>
-            <ClockWrapper />
+            <Clock />
         </StrictMode>
     )
-
-    await user.click(screen.getByText('Open'))
 
     // 这里可以发现，我们创建了两个 ExternalClock 实例。在这个例子中可能不是个大问题，但实际情况下，创建外部副作用的成本可能是非常高的
     // 比如，创建一个 websocket 连接，或者是发送一次 http 请求
     // React 并没有承诺 render 事件执行次数的确定性，包括执行的顺序，只是在当前版本中它恰好是连续顺序执行一次的，但这个行为也不能保证在未来的版本中不会改变
     expect(traceClockInit).toBeCalledTimes(2)
 
-    await user.click(screen.getByText('Close'))
+    cleanup()
 })
 
 /**
  * 用 AbortController 和 Effect 一起，可以解决副作用的清理问题。但这个写法里有很多的坑，下面的测试介绍了正确的写法，以及哪些地方容易写错
  */
-test('用 AbortController + Effect', async () => {
+test('用 AbortController + Effect', () => {
     const LABEL_NODE = 'Node';
     const LABEL_PARENT = 'Parent';
     const traceStubSetup = jest.fn();
@@ -720,6 +596,8 @@ test('用 AbortController + Effect', async () => {
             }
         }, [abort])
 
+        // useAbort 返回值有可能为 null，React 不能确保在 render 函数中一定能创建出来一个 AbortController
+        // 尝试把 useAbort 返回非 null 值的努力都是错误的，因为这是 React 的*哲学问题*
         if (!abort) {
             return <></>
         }
@@ -782,12 +660,12 @@ test('用 AbortController + Effect', async () => {
 
 /**
  * 为什么这么复杂？一定需要一个 tree context，而不是一层 root context？
- * A: 因为 GUI 界面大部分都是 hiraichy 的，比如进编辑器，打开一个分享弹窗，分享弹窗的副作用既要在关闭分享弹窗时清理，也需要在 history back 返回工作台时清理，同时，如果先关了分享弹窗，再返回工作台。那么分享弹窗的副作用不应该在返回工作台时再次清理
+ * A: 因为 GUI 界面大部分都是 hierarchy 的，比如进编辑器，打开一个分享弹窗，分享弹窗的副作用既要在关闭分享弹窗时清理，也需要在 history back 返回工作台时清理，同时，如果先关了分享弹窗，再返回工作台。那么分享弹窗的副作用不应该在返回工作台时再次清理
  * 
  * 为什么副作用的清理过程不能是幂等的?
  * A: 很容易举一些例子。比如副作用是全局计数器 +1，那么清理过程就是 -1。如果清理过程是幂等的，那么在多次清理时，计数器就会出现负数。再比如，副作用是在内存中 alloc 一块区域，那么清理过程就是 free 这块区域，显然这个清理过程重复执行就会出现 double free 的问题
  * 
- * 下面这个例子来展示为什么必须要一个 hiraichy tree context
+ * 下面这个例子来展示为什么必须要一个 hierarchy tree context
  */
 test('展示子组件必须有自己的 abort context，否则无法清理副作用', async () => {
     let globalId = 0; // 一个全局计数器，来模拟一个副作用
@@ -855,7 +733,7 @@ test('在 effect 里和 abort 里都清理副作用，展示 double cleanup 的�
             return () => {
                 cleanup()
             }
-        }, [])
+        }, [abort])
 
         return <div>Node</div>;
     }
@@ -898,7 +776,7 @@ test('在 effect 里和 abort 里都清理副作用，展示 double cleanup 的�
 })
 
 /**
- * 下面的测试尝试在不使用 hiraichy tree context 的情况下，解决 double cleanup 的问题
+ * 下面的测试尝试在不使用 hierarchy tree context 的情况下，解决 double cleanup 的问题
  * 思路是 abort context 的 onAbort 返回一个函数，这个函数在执行时不仅会执行 cleanup，还会把 cleanup 从 abort context 中移除
  * 这样在 abort context 在 abort 时，就不会重复执行 cleanup 了
  * 
@@ -921,7 +799,7 @@ test('尝试清理 cleanup 产生的副作用', async () => {
             return () => {
                 cleanup()
             }
-        }, [])
+        }, [abort])
 
         return <div>Node</div>;
     }
