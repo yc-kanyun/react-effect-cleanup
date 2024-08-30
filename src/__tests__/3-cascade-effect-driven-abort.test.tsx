@@ -1,4 +1,3 @@
-import "whatwg-fetch";
 import "@testing-library/jest-dom/jest-globals";
 import { test, expect, jest, beforeEach, afterEach } from "@jest/globals";
 import { render, cleanup, screen } from "@testing-library/react";

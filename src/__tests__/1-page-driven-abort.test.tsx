@@ -1,4 +1,3 @@
-import 'whatwg-fetch'
 import '@testing-library/jest-dom/jest-globals'
 import { test, expect, jest, afterEach, beforeEach } from "@jest/globals"
 import { act, render, screen } from "@testing-library/react"
@@ -23,7 +22,7 @@ afterEach(() => {
  * 这个需求在长生命周期的应用中是非常基本的需求，比如在聊天室页面会建立一个长连接，当返回到聊天列表页时，这个长连接应该被关闭
  * 在开始之前，我们先用一些简单的测试熟悉一下 React 和 Jest 测试
  */
-test('简单的 route 测试，用来解释说明基本的测试结构', async () => {
+test('简单的 route 测试，用来解释说明基本的测试结构', () => {
     const router = createMemoryRouter([{
         path: '/',
         element: <div>Home</div>,
@@ -46,7 +45,7 @@ test('简单的 route 测试，用来解释说明基本的测试结构', async (
 /**
  * 下面这个测试展示了 strict mode 下的 effect 多次执行，这个测试中需要留意 jest.fn() 的用法，后续会大量使用这个 pattern
  */
-test('增加 effect，用来验证 strict mode，以及解释说明 mock fn 的基本用法', async () => {
+test('增加 effect，用来验证 strict mode，以及解释说明 mock fn 的基本用法', () => {
     const trace: (label: string) => void = jest.fn();
 
     function Home() {
@@ -77,7 +76,7 @@ test('增加 effect，用来验证 strict mode，以及解释说明 mock fn 的�
 /**
  * 
  */
-test('测试 effect 中的异步 mock 方法应该被 strict mode 执行两次', async () => {
+test('测试 effect 中的异步 mock 方法应该被 strict mode 执行两次', () => {
     const trace: (label: string) => void = jest.fn();
 
     function Home() {
@@ -110,7 +109,7 @@ test('测试 effect 中的异步 mock 方法应该被 strict mode 执行两次',
  * Home 组件在渲染后，100ms 后会返回。而 Foo 组件在 10ms 后回返回
  * 我们先从 Home 页开始，然后切换到 Foo 页面，观察最后一次 trace 调用的参数
  */
-test('引入 Race Condition，在切换到 foo 页后，trace 的最后一次调用却是 home', async () => {
+test('引入 Race Condition，在切换到 foo 页后，trace 的最后一次调用却是 home', () => {
     const trace: (label: string) => void = jest.fn();
 
     function Home() {
@@ -163,7 +162,7 @@ test('引入 Race Condition，在切换到 foo 页后，trace 的最后一次调
  * 要修复这个问题，React 提供了解决方案，即 Effect 的 cleanup 机制
  * 我们可以给 useEffect 返回一个 callback 函数，这个函数会在组件销毁时执行
  */
-test('在 effect 中修复 Race Condition', async () => {
+test('在 effect 中修复 Race Condition', () => {
     const trace: (label: string) => void = jest.fn();
 
     function Home() {
@@ -234,7 +233,7 @@ test('在 effect 中修复 Race Condition', async () => {
  *  2. 并不是所有的异步任务都可以被 cancel 
  * 以及一个更严重的问题，并不是所有的异步操作都是在 effect 中发起的，它的 cleanup 会非常复杂，甚至外部没有 cleanup 它的能力
  */
-test('引入外部存储后 Race Condition 变得复杂，如何避免多发出去的请求', async () => {
+test('引入外部存储后 Race Condition 变得复杂，如何避免多发出去的请求', () => {
     const trace: (label: string) => void = jest.fn();
 
     /**
@@ -337,7 +336,7 @@ test('简单的 route 带 loader 的测试，说明 loader 的作用', async () 
     const router = createMemoryRouter([{
         path: '/',
         element: <div>Page: Home</div>,
-        loader: async () => {
+        loader: () => {
             trace('home')
             return null;
         }
