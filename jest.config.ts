@@ -3,7 +3,7 @@ import type { Config } from 'jest';
 const config: Config = {
     testEnvironment: "jsdom",
 
-    testMatch: ['**/__tests__/**/*.spec.(tsx|ts)'],
+    testMatch: ['**/__tests__/**/*.(spec|test).(tsx|ts)'],
 
     transform: {
         '^.+\\.tsx?$': [
