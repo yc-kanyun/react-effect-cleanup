@@ -659,6 +659,12 @@ test("用 AbortController + Effect", () => {
   expect(traceAbortRun).toBeCalledTimes(2);
   expect(traceAbortRun).toHaveBeenNthCalledWith(1, LABEL_NODE);
   expect(traceAbortRun).toHaveBeenNthCalledWith(2, LABEL_PARENT);
+
+
+  /**
+   * 感受一下上面断言的复杂度，如果我们要用 effect 来管理副作用，那么我们需要考虑的东西就有很多了。比如调用次数、时机、顺序等等，这些都是 react 安排好的，我们需要去理解它的机制，然后实现我们的目标
+   * 然而，React 并不承诺这些机制在将来不发生变化，所以我们的代码可能会在未来的版本中失效
+   */
 });
 
 /**
@@ -679,13 +685,14 @@ test("展示子组件必须有自己的 abort context，否则无法清理副作
    * @param param0
    */
   function Child({ abort }: { abort: AbortContext }) {
-    // 这里套在 useEffect 里，但在不开严格模式的情况下，这样写就足够展示问题了
-    globalId++;
+    useEffect(() => {
+      globalId++;
 
-    // 这里把清理过程绑定在了 root context 上，但这样和 effect 就没有任何关系了，如果 parent 不清理，那么这里的清理代码就不会被执行
-    abort.onAbort(() => {
-      globalId--;
-    });
+      // 这里把清理过程绑定在了 root context 上，但这样和 effect 就没有任何关系了，如果 parent 不清理，那么这里的清理代码就不会被执行
+      abort.onAbort(() => {
+        globalId--;
+      });
+    }, [abort])
 
     return <div>Node</div>;
   }
