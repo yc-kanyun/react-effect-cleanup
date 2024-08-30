@@ -733,10 +733,14 @@ test("展示子组件必须有自己的 abort context，否则无法清理副作
   // 点击 Close 时 Child 被删除
   await user.click(screen.getByText("Close"));
 
-  // 副作用仍然存在
+  // 副作用仍然存在。因为虽然 child 被 unmount 了，但是我们并没有在 child 的 effect 里清理副作用
   expect(globalId).toBe(1);
 });
 
+/**
+ * 显然，在 child 的 effect 里清理副作用会修复上一个 case 的问题
+ * 但会引入另一个问题，如果 child 先 unmount 了，然后 parent 在另一次交互中被 unmount，就会出现 double cleanup 的问题
+ */
 test("在 effect 里和 abort 里都清理副作用，展示 double cleanup 的问题", async () => {
   let globalId = 0; // 一个全局计数器，来模拟一个副作用
 
@@ -802,7 +806,8 @@ test("在 effect 里和 abort 里都清理副作用，展示 double cleanup 的�
 });
 
 /**
- * 下面的测试尝试在不使用 hierarchy tree context 的情况下，解决 double cleanup 的问题
+ * 为 child 创建一个 abortContext 让 child 单独来维护它的 cleanup 过程是可以解决这个问题的，这也是之前我们为什么要实现一个 hierarchy tree context 的原因
+ * 
  * 思路是 abort context 的 onAbort 返回一个函数，这个函数在执行时不仅会执行 cleanup，还会把 cleanup 从 abort context 中移除
  * 这样在 abort context 在 abort 时，就不会重复执行 cleanup 了
  *
