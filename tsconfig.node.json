@@ -18,5 +18,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "uno.config.ts", "jest.config.ts", "jest.setup-after-env.ts"]
+  "include": [
+    "vite.config.ts",
+    "uno.config.ts",
+    "vitest.config.ts",
+    "jest.setup-after-env.ts"
+  ]
 }

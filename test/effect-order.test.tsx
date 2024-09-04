@@ -1,11 +1,10 @@
-import '@testing-library/jest-dom/jest-globals'
-import { test, expect, jest } from "@jest/globals"
+import { test, expect, vi } from "vitest"
 import { cleanup, render } from "@testing-library/react"
 import { useEffect } from 'react'
 
 test('Parent/Child 的 effect 执行和清理过程测试', () => {
-    const traceEffect = jest.fn();
-    const traceEffectCleanup = jest.fn();
+    const traceEffect = vi.fn();
+    const traceEffectCleanup = vi.fn();
     function Child() {
         traceEffect('child')
         useEffect(() => {

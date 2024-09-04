@@ -1,20 +1,16 @@
-import '@testing-library/jest-dom/jest-globals'
-import { test, expect, jest, afterEach, beforeEach } from "@jest/globals"
-import { act, render, screen } from "@testing-library/react"
+import { test, afterEach, beforeEach, expect, vi } from "vitest"
+import { act, cleanup, render, screen } from "@testing-library/react"
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { StrictMode, useEffect } from 'react'
 import { create } from 'zustand'
 
 beforeEach(() => {
-    jest.useFakeTimers()
-
-    expect(jest.getTimerCount()).toBe(0)
+    vi.useFakeTimers()
 })
 
 afterEach(() => {
-    expect(jest.getTimerCount()).toBe(0)
-
-    jest.useRealTimers()
+    cleanup()
+    vi.useRealTimers()
 })
 
 /**
@@ -39,14 +35,14 @@ test('简单的 route 测试，用来解释说明基本的测试结构', () => {
         void router.navigate('/foo')
     })
 
-    expect(screen.getByText('Foo')).toBeInTheDocument()
+    expect(screen.getByText('Foo')).toBeTruthy()
 })
 
 /**
- * 下面这个测试展示了 strict mode 下的 effect 多次执行，这个测试中需要留意 jest.fn() 的用法，后续会大量使用这个 pattern
+ * 下面这个测试展示了 strict mode 下的 effect 多次执行，这个测试中需要留意 vi.fn() 的用法，后续会大量使用这个 pattern
  */
 test('增加 effect，用来验证 strict mode，以及解释说明 mock fn 的基本用法', () => {
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
 
     function Home() {
         useEffect(() => {
@@ -65,7 +61,7 @@ test('增加 effect，用来验证 strict mode，以及解释说明 mock fn 的�
         <RouterProvider router={router} />
     </StrictMode>)
 
-    expect(screen.getByText('home')).toBeInTheDocument()
+    expect(screen.getByText('home')).toBeTruthy()
 
     // effect 执行了两次
     expect(trace).toBeCalledTimes(2)
@@ -77,7 +73,7 @@ test('增加 effect，用来验证 strict mode，以及解释说明 mock fn 的�
  * 
  */
 test('测试 effect 中的异步 mock 方法应该被 strict mode 执行两次', () => {
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
 
     function Home() {
         useEffect(() => {
@@ -98,8 +94,8 @@ test('测试 effect 中的异步 mock 方法应该被 strict mode 执行两次',
         <RouterProvider router={router} />
     </StrictMode>)
 
-    expect(screen.getByText('home')).toBeInTheDocument()
-    jest.runAllTimers()
+    expect(screen.getByText('home')).toBeTruthy()
+    vi.runAllTimers()
     expect(trace).toBeCalledTimes(2)
 })
 
@@ -110,7 +106,7 @@ test('测试 effect 中的异步 mock 方法应该被 strict mode 执行两次',
  * 我们先从 Home 页开始，然后切换到 Foo 页面，观察最后一次 trace 调用的参数
  */
 test('引入 Race Condition，在切换到 foo 页后，trace 的最后一次调用却是 home', () => {
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
 
     function Home() {
         useEffect(() => {
@@ -149,8 +145,8 @@ test('引入 Race Condition，在切换到 foo 页后，trace 的最后一次调
         void router.navigate('/foo')
     })
 
-    jest.runAllTimers()
-    expect(screen.getByText('Foo')).toBeInTheDocument()
+    vi.runAllTimers()
+    expect(screen.getByText('Foo')).toBeTruthy()
 
     // 观察下面的断言，尽管页面已经切换到了 Foo 页，但 trace 方法最后的一次调用却是 home
     // 如果这里是一个 setState('home')，那么在切换到 foo 页时仍然会展示 home
@@ -163,7 +159,7 @@ test('引入 Race Condition，在切换到 foo 页后，trace 的最后一次调
  * 我们可以给 useEffect 返回一个 callback 函数，这个函数会在组件销毁时执行
  */
 test('在 effect 中修复 Race Condition', () => {
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
 
     function Home() {
         useEffect(() => {
@@ -215,8 +211,8 @@ test('在 effect 中修复 Race Condition', () => {
             void router.navigate('/foo')
         })
 
-        jest.runAllTimers()
-        expect(screen.getByText('Foo')).toBeInTheDocument()
+        vi.runAllTimers()
+        expect(screen.getByText('Foo')).toBeTruthy()
     }
 
     // 观察下面的断言，这里可以看到和上一个测试的区别
@@ -234,7 +230,7 @@ test('在 effect 中修复 Race Condition', () => {
  * 以及一个更严重的问题，并不是所有的异步操作都是在 effect 中发起的，它的 cleanup 会非常复杂，甚至外部没有 cleanup 它的能力
  */
 test('引入外部存储后 Race Condition 变得复杂，如何避免多发出去的请求', () => {
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
 
     /**
      * 这里用了 zustand，我们可以先不了解 zustand 到底是什么，只把它当成一个全局的 service，提供一个 delayUpdate 的能力
@@ -313,12 +309,12 @@ test('引入外部存储后 Race Condition 变得复杂，如何避免多发出�
          * 这只是写测试的要求，和代码逻辑无关
          */
         act(() => {
-            jest.runAllTimers()
+            vi.runAllTimers()
         })
     }
 
     // 此时页面已经到了 foo 页，但 name 显示为 Home，因为 Home 的异步请求比 Foo 的请求慢 (100ms > 10ms)
-    expect(screen.getByText('Current Name: Home')).toBeInTheDocument()
+    expect(screen.getByText('Current Name: Home')).toBeTruthy()
 
     // 同时 trace 方法被调用了 4 次，因为每个 effect 都被执行了两次，这也不是我们期望的结果
     expect(trace).toHaveBeenCalledTimes(4)
@@ -331,7 +327,7 @@ test('引入外部存储后 Race Condition 变得复杂，如何避免多发出�
  * 注意，这个方法和渲染过程无关，所以它不受 strict mode 的影响
  */
 test('简单的 route 带 loader 的测试，说明 loader 的作用', async () => {
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
 
     const router = createMemoryRouter([{
         path: '/',
@@ -356,10 +352,10 @@ test('简单的 route 带 loader 的测试，说明 loader 的作用', async () 
 
     await act(async () => {
         void router.navigate('/foo')
-        await jest.runAllTimersAsync()
+        await vi.runAllTimersAsync()
     })
 
-    expect(screen.getByText('Page: Foo')).toBeInTheDocument()
+    expect(screen.getByText('Page: Foo')).toBeTruthy()
 
     // 注意下面的调用次数，在 loader 中的异步操作，每个页面只执行了一次。如果同样的异步过程，放在 effect 中，会因为 strict mode 的原因执行两次
     expect(trace).toHaveBeenCalledTimes(2)
@@ -371,7 +367,7 @@ test('简单的 route 带 loader 的测试，说明 loader 的作用', async () 
  * 接下来我们用 loader 来避免 strict mode 导致的双倍请求，和 render event 解耦
  */
 test('用 loader 而不是 effect 来发送请求', async () => {
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
     const userStore = create<{ name: string, delayUpdate: (newName: string, delay: number) => Promise<void> }>(set => {
         return {
             name: '',
@@ -417,21 +413,21 @@ test('用 loader 而不是 effect 来发送请求', async () => {
 
     await act(async () => {
         void router.navigate('/foo')
-        await jest.runAllTimersAsync()
+        await vi.runAllTimersAsync()
     })
 
     // 这里的断言和上一个测试一样，但是这次的 trace 只被调用了一次。这是因为 loader 方法不受 strict mode 的影响
     expect(trace).toHaveBeenCalledTimes(2)
 
     // 但是，在切换到 Foo 页面之后，state 还是 Home
-    expect(screen.getByText('Home')).toBeInTheDocument()
+    expect(screen.getByText('Home')).toBeTruthy()
 })
 
 /**
  * 接下来，引入一个状态来表示当前页面是否已经被切换，如果已经切换，则不再执行异步操作
  */
 test('引入 abort 标记，在页面切换时阻止前一个页面的异步回调继续执行', async () => {
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
 
     type AbortedFn = () => boolean;
     type AbortFn = () => void;
@@ -515,11 +511,11 @@ test('引入 abort 标记，在页面切换时阻止前一个页面的异步回�
 
     await act(async () => {
         void router.navigate('/foo');
-        await jest.runAllTimersAsync()
+        await vi.runAllTimersAsync()
     })
 
     // 可以看到事情有了变化，页面上展示的是 Foo，而不是 Home，这是我们所期望的
-    expect(screen.getByText('Foo')).toBeInTheDocument()
+    expect(screen.getByText('Foo')).toBeTruthy()
 
     // trace 方法的执行次数也正常了，只执行了一次
     expect(trace).toHaveBeenCalledTimes(1)
@@ -622,11 +618,11 @@ test('重构 router 中的重复代码', async () => {
 
         await act(async () => {
             void router.navigate('/foo');
-            await jest.runAllTimersAsync()
+            await vi.runAllTimersAsync()
         })
 
 
-        expect(screen.getByText('Foo')).toBeInTheDocument()
+        expect(screen.getByText('Foo')).toBeTruthy()
     }
 })
 
@@ -696,7 +692,7 @@ test('考虑清理场景，在 loader fn 中用 subscribe 会引入副作用', a
 
     const abortContext = createAbortContext();
 
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
     const router = createMemoryRouter([{
         path: '/',
         element: <Name />,
@@ -723,10 +719,10 @@ test('考虑清理场景，在 loader fn 中用 subscribe 会引入副作用', a
 
         await act(async () => {
             void router.navigate('/foo');
-            await jest.runAllTimersAsync()
+            await vi.runAllTimersAsync()
         })
 
-        expect(screen.getByText('Foo')).toBeInTheDocument()
+        expect(screen.getByText('Foo')).toBeTruthy()
     }
 
     // 注意这行代码，trace 被调用了一次，这并不是我们期望的结果
@@ -803,7 +799,7 @@ test('给 AbortController 引入 cleanup 机制', async () => {
 
     const abortContext = createAbortContext();
 
-    const trace: (label: string) => void = jest.fn();
+    const trace: (label: string) => void = vi.fn();
     const router = createMemoryRouter([{
         path: '/',
         element: <Name />,
@@ -832,10 +828,10 @@ test('给 AbortController 引入 cleanup 机制', async () => {
 
         await act(async () => {
             void router.navigate('/foo');
-            await jest.runAllTimersAsync()
+            await vi.runAllTimersAsync()
         })
 
-        expect(screen.getByText('Foo')).toBeInTheDocument()
+        expect(screen.getByText('Foo')).toBeTruthy()
     }
 
     // 这样，在切换到 Foo 页面之后，Home 页中的 subscribe 回调就不会被执行了

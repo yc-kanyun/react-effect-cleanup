@@ -6,7 +6,7 @@
  * 3. Atom 的变化怎么 watch？
  */
 
-import { expect, test } from "@jest/globals";
+import { expect, test } from "vitest"
 import { atom, createStore } from "jotai";
 
 test("简单的 atom 例子", () => {

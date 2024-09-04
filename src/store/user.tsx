@@ -13,7 +13,7 @@ export function createUserStore() {
         _loading: false,
         fetch: async (ctx) => {
             set({ _loading: true })
-            const res = await fetch('https://api.github.com/users/octocat')
+            const res = await fetch('/api/users/current')
             if (ctx.aborted()) {
                 return
             }

@@ -1,18 +1,17 @@
-import "@testing-library/jest-dom/jest-globals";
-import { test, expect, jest, beforeEach, afterEach } from "@jest/globals";
+import { test, afterEach, beforeEach, expect, vi } from "vitest"
 import { render, screen, cleanup } from "@testing-library/react";
 import { useEffect } from "react";
 
 beforeEach(() => {
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 test("Parent/Child 的 effect 执行和清理过程测试", () => {
-  const traceCleanup = jest.fn();
+  const traceCleanup = vi.fn();
   function Node() {
     useEffect(() => {
       return () => {
@@ -25,7 +24,7 @@ test("Parent/Child 的 effect 执行和清理过程测试", () => {
 
   render(<Node />);
 
-  expect(screen.getByText("Node")).toBeInTheDocument();
+  expect(screen.getByText("Node")).toBeTruthy();
 
   expect(traceCleanup).not.toBeCalled();
 
