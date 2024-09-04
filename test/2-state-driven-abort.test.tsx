@@ -1,5 +1,5 @@
 import { test, afterEach, beforeEach, expect, vi } from "vitest"
-import { act, cleanup, render, screen } from "@testing-library/react"
+import { cleanup, render, screen } from "@testing-library/react"
 import { createMemoryRouter, Link, RouterProvider } from 'react-router-dom'
 import { StrictMode } from 'react'
 import { create } from 'zustand'
@@ -7,12 +7,6 @@ import userEvent from '@testing-library/user-event'
 
 async function sleep(time: number) {
     return new Promise(r => setTimeout(r, time))
-}
-
-async function actTimers() {
-    await act(async () => {
-        await vi.runAllTimersAsync()
-    })
 }
 
 beforeEach(() => {
@@ -34,7 +28,7 @@ afterEach(() => {
  * 这不是我们期望的，我们希望在调用 disconnect() 之后，能 abort 最后一次 connected 状态的设置
  * 在下面的测试中，我们首先展示问题是如何出现的。首先从 setupRoomPage 开始
  */
-test.skip('同一个页面内异步任务得不到清理的例子', async () => {
+test('同一个页面内异步任务得不到清理的例子', async () => {
     type AbortedFn = () => boolean;
     type AbortFn = () => void;
     type CleanupFn = () => void;
@@ -206,17 +200,13 @@ test.skip('同一个页面内异步任务得不到清理的例子', async () => 
         render(<StrictMode>
             <RouterProvider router={router} />
         </StrictMode>)
-
-        await actTimers()
     }
 
-    const user = userEvent.setup({
-        delay: null,
-    });
+    const user = userEvent.setup({ delay: null });
 
     // When: 连续两次点击 toggleRoom 按钮
     {
-        expect(screen.getByText('RoomStatus: Idle')).toBeTruthy()
+        expect(await screen.findByText('RoomStatus: Idle')).toBeTruthy()
 
         // When: 点击 toggleRoom 按钮打开房间，开始进行连接
         await user.click(screen.getByText('connect'))
@@ -231,12 +221,11 @@ test.skip('同一个页面内异步任务得不到清理的例子', async () => 
         expect(screen.getByText('RoomStatus: Idle')).toBeTruthy()
     }
 
-    await actTimers()
     // Then: 可以发现 toggleRoom 后，前一个 timer 仍然执行了导致状态变为已连接
-    expect(screen.getByText('RoomStatus: Connected')).toBeTruthy()
+    expect(await screen.findByText('RoomStatus: Connected')).toBeTruthy()
 })
 
-test.skip('泛化 abortContext，解决 state 驱动的异步取消问题', async () => {
+test('泛化 abortContext，解决 state 驱动的异步取消问题', async () => {
     /*
     ---------------- Abort 的工具类，增加了 SwitchWrapper 相关的方法 ----------------
     */
@@ -431,8 +420,7 @@ test.skip('泛化 abortContext，解决 state 驱动的异步取消问题', asyn
             <RouterProvider router={router} />
         </StrictMode>)
 
-        await actTimers();
-        expect(screen.getByText('RoomStatus: Idle')).toBeTruthy()
+        expect(await screen.findByText('RoomStatus: Idle')).toBeTruthy()
 
         await user.click(screen.getByText('connect'))
         expect(screen.getByText('RoomStatus: Connecting')).toBeTruthy()
@@ -445,11 +433,10 @@ test.skip('泛化 abortContext，解决 state 驱动的异步取消问题', asyn
     // When: 清空 timer 队列
     // 下面的断言和上一个测试有区别，这是我们期望的结果
     // Then: 房间状态是 Idle，因为 Connecting 的回调被取消了
-    await actTimers()
-    expect(screen.getByText('RoomStatus: Idle')).toBeTruthy()
+    expect(await screen.findByText('RoomStatus: Idle')).toBeTruthy()
 })
 
-test.skip('验证在页面切换时，异步任务也可以得到清理', async () => {
+test('验证在页面切换时，异步任务也可以得到清理', async () => {
     type AbortedFn = () => boolean;
     type AbortFn = () => void;
     type CleanupFn = () => void;
@@ -632,8 +619,7 @@ test.skip('验证在页面切换时，异步任务也可以得到清理', async 
         <RouterProvider router={router} />
     </StrictMode>)
 
-    await actTimers();
-    expect(screen.getByText('RoomStatus: Idle')).toBeTruthy()
+    expect(await screen.findByText('RoomStatus: Idle')).toBeTruthy()
 
     // When: 按一下 toggleRoom 开始连接，然后切换页面到 Foo
     {
@@ -641,8 +627,7 @@ test.skip('验证在页面切换时，异步任务也可以得到清理', async 
         await user.click(screen.getByText('To Foo'))
     }
 
-    await actTimers()
-    expect(screen.getByText('Foo')).toBeTruthy()
+    expect(await screen.findByText('Foo')).toBeTruthy()
     expect(roomStore.getState().status).toBe(RoomStatus.Idle)
 })
 

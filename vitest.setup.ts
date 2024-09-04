@@ -1,5 +1,5 @@
 import { server } from "./src/mocks/server";
-import { beforeAll, afterAll, beforeEach } from "vitest";
+import { beforeAll, afterAll, beforeEach, vi } from "vitest";
 
 beforeAll(() => {
     server.listen()
@@ -12,3 +12,18 @@ afterAll(() => {
 beforeEach(() => {
     server.resetHandlers()
 })
+
+beforeAll(() => {
+    const _jest = (globalThis as any).jest;
+
+    (globalThis as any).jest = {
+        ...(globalThis as any).jest,
+        advanceTimersByTime: vi.advanceTimersByTime.bind(vi)
+    };
+
+    vi.useFakeTimers();
+
+    return () => {
+        (globalThis as any).jest = _jest
+    }
+});

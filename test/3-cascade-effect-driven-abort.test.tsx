@@ -4,12 +4,12 @@ import { StrictMode, useEffect, useState } from "react";
 import userEvent from "@testing-library/user-event";
 
 beforeEach(() => {
-  vi.useFakeTimers();
+  vi.useFakeTimers()
 });
 
 afterEach(() => {
   cleanup()
-  vi.useRealTimers();
+  vi.useRealTimers()
 });
 
 /**
@@ -673,7 +673,7 @@ test("用 AbortController + Effect", () => {
  *
  * 下面这个例子来展示为什么必须要一个 hierarchy tree context
  */
-test.skip("展示子组件必须有自己的 abort context，否则无法清理副作用", async () => {
+test("展示子组件必须有自己的 abort context，否则无法清理副作用", async () => {
   let globalId = 0; // 一个全局计数器，来模拟一个副作用
 
   /**
@@ -738,7 +738,7 @@ test.skip("展示子组件必须有自己的 abort context，否则无法清理�
  * 显然，在 child 的 effect 里清理副作用会修复上一个 case 的问题
  * 但会引入另一个问题，如果 child 先 unmount 了，然后 parent 在另一次交互中被 unmount，就会出现 double cleanup 的问题
  */
-test.skip("在 effect 里和 abort 里都清理副作用，展示 double cleanup 的问题", async () => {
+test("在 effect 里和 abort 里都清理副作用，展示 double cleanup 的问题", async () => {
   let globalId = 0; // 一个全局计数器，来模拟一个副作用
 
   function Child({ abort }: { abort: AbortContext }) {
@@ -811,7 +811,7 @@ test.skip("在 effect 里和 abort 里都清理副作用，展示 double cleanup
  * 但本质上，这只是通过一个队列，对一个树状结构的先序遍历进行了模拟。这个方法的困难点在于，onAbort 的返回值必须在 scope 中存下来，并且在 effect 的 cleanup 中自己编排顺序，这个顺序是手工维护的，而且容易遗漏
  * 这跟最开始在 service 中维护一个 destroy 没有区别
  */
-test.skip("尝试清理 cleanup 产生的副作用", async () => {
+test("尝试清理 cleanup 产生的副作用", async () => {
   let globalId = 0; // 一个全局计数器，来模拟一个副作用
 
   function Child({ abort }: { abort: AbortContext }) {
