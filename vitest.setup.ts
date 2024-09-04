@@ -1,3 +1,4 @@
+import { afterEach } from "vitest";
 import { server } from "./src/mocks/server";
 import { beforeAll, afterAll, beforeEach, vi } from "vitest";
 
@@ -10,6 +11,10 @@ afterAll(() => {
 })
 
 beforeEach(() => {
+    server.resetHandlers()
+})
+
+afterEach(() => {
     server.resetHandlers()
 })
 

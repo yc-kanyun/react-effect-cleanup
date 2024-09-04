@@ -120,7 +120,7 @@ export function createAbortedController(label: string): AbortController {
                     currCtrl = createChildController(childLabel);
 
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                    return cb(currCtrl, ...args)
+                    return cb(currCtrl, ...args);
                 } as Func
             }
 

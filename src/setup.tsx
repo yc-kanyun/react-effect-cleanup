@@ -92,6 +92,15 @@ export function setupApp(): AppContext {
                 </RootProvider>,
 
                 loader: abortContextWrapper(setupHomePage)
+            },
+            {
+                path: '/foo',
+
+                element: <RootProvider userStore={userStore} rootAbortContext={rootAbortController}>
+                    <div>Foo Page</div>
+                </RootProvider>,
+
+                loader: abortContextWrapper(() => Promise.resolve(null))
             }
         ]
     }

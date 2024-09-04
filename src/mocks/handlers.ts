@@ -1,4 +1,4 @@
-import { http, HttpResponse, RequestHandler } from 'msw'
+import { delay, http, HttpResponse, RequestHandler } from 'msw'
 
 // from https://api.github.com/users/octocat
 const OCTOCAT_USER = {
@@ -37,7 +37,8 @@ const OCTOCAT_USER = {
 }
 
 export const handlers: RequestHandler[] = [
-    http.get('/api/users/current', () => {
+    http.get('/api/users/current', async () => {
+        await delay(100)
         return HttpResponse.json(OCTOCAT_USER)
     })
 ]

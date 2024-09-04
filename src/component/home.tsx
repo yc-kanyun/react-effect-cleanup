@@ -6,6 +6,8 @@ export function Home() {
     const userName = userStore(state => state.name)
     const _loading = userStore(state => state._loading)
 
+    console.log('render Home, _loading:', _loading)
+
     if (_loading) {
         return <div>Loading...</div>
     }
