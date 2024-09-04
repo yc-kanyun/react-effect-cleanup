@@ -3,6 +3,7 @@ import { AbortContext, AbortController, createAbortedController } from "./abort"
 import { Home } from "./component/home";
 import { createUserStore } from "./store/user";
 import { RootProvider } from "./store/root-context";
+import toast from "react-hot-toast";
 
 export interface AppContext {
     userStore: ReturnType<typeof createUserStore>,
@@ -21,6 +22,24 @@ export function setupApp(): AppContext {
 
         // 下面的写法可以阻塞页面加载，让 router 展示全局 loading
         // await userStore.getState().fetch(ctx)
+
+        let loadingToastId: string | null = null;
+        ctx.onAbort(userStore.subscribe(state => {
+            if (state._loading && !loadingToastId) {
+                loadingToastId = toast.loading('Loading...')
+            }
+
+            if (!state._loading && loadingToastId) {
+                const currToastId = loadingToastId
+                const timer = setTimeout(() => {
+                    toast.dismiss(currToastId)
+                }, 1000)
+                ctx.onAbort(() => {
+                    clearTimeout(timer)
+                })
+                loadingToastId = null
+            }
+        }))
 
         return Promise.resolve(null)
     }

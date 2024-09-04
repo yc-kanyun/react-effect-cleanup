@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { StrictMode } from 'react';
 import { setupApp } from './setup';
 import { createHashRouter, RouterProvider } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 (() => {
   const root = document.getElementById('root');
@@ -15,6 +16,7 @@ import { createHashRouter, RouterProvider } from 'react-router-dom';
   createRoot(root).render(
     <StrictMode>
       <RouterProvider router={router} />
+      <Toaster />
     </StrictMode>
   )
 })();
