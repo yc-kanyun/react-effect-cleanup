@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { StrictMode } from 'react';
-import 'virtual:uno.css'
+import { setupApp } from './setup';
+import { createHashRouter, RouterProvider } from 'react-router-dom';
 
 (() => {
   const root = document.getElementById('root');
@@ -8,9 +9,12 @@ import 'virtual:uno.css'
     return;
   }
 
+  const appContext = setupApp()
+  const router = createHashRouter(appContext.routes)
+
   createRoot(root).render(
     <StrictMode>
-      <div>Hello world!</div>
+      <RouterProvider router={router} />
     </StrictMode>
   )
 })();
