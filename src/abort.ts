@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+export interface AbortControllerOptions {
+    debugLabel?: string
+}
 
 export type AbortedFn = () => boolean;
 export type AbortFn = () => void;
@@ -19,17 +21,17 @@ export interface AbortContext {
 
     /**
      * 返回一个子 switchContext，当前 abortContext 被 abort 时，也会 abort 子 switchContext
-     * 
+     *
      * @returns 被 AbortContext 所管理的 switchWrapper
      */
-    createAbortSwitchWrapper: <Func extends AnyFunc>(childLabel: string) => AbortSwitchWrapperFn<Func>,
+    createAbortSwitchWrapper: <Func extends AnyFunc>(options?: AbortControllerOptions) => AbortSwitchWrapperFn<Func>,
 
     /**
      * 返回一个子 controller, abortController 被 abort 时，也会 abort 子 controller
-     * 
+     *
      * @returns 被 AbortContext 所管理的 controller
      */
-    createController: (label: string) => AbortController
+    createController: (options?: AbortControllerOptions) => AbortController
 }
 
 export interface AbortController extends AbortContext {
@@ -37,17 +39,16 @@ export interface AbortController extends AbortContext {
 }
 
 let controllerCounter = 0
-export function createAbortedController(label: string): AbortController {
+export function createAbortedController(options?: AbortControllerOptions): AbortController {
     const currCount = controllerCounter++;
-    const controllerId = `${label}-${String(currCount)}`
-    console.log('[CREATE], id=', controllerId)
+    const controllerId = `${options?.debugLabel ?? ''}-${String(currCount)}`
+    console.log(`[CREATE], id=${controllerId}`)
     const cleanupCallbacks: CleanupFn[] = []
     const childControllers: AbortController[] = []
     let aborted = false;
 
-    function createChildController(childLabel: string) {
-        console.log('[CREATE CHILD], id=', controllerId)
-        const ctrl = createAbortedController(childLabel);
+    function createChildController(options?: AbortControllerOptions) {
+        const ctrl = createAbortedController(options);
         childControllers.push(ctrl)
 
         ctrl.onAbort(() => {
@@ -62,22 +63,26 @@ export function createAbortedController(label: string): AbortController {
 
     return {
         abort: () => {
-            console.log('[ABORT], id=', controllerId)
             if (aborted) {
-                console.log('[ABORT] redundant, id=', controllerId)
                 return;
             }
-            console.log('[ABORT] begin..., id=', controllerId)
 
             for (let i = childControllers.length - 1; i >= 0; i--) {
                 childControllers[i].abort()
             }
             childControllers.length = 0
 
-            cleanupCallbacks.reverse().forEach(cb => { cb() });
-            cleanupCallbacks.length = 0
+            for (let i = cleanupCallbacks.length - 1; i >= 0; i--) {
+                const cb = cleanupCallbacks[i]
+                cb();
+            }
+
+            if (cleanupCallbacks.length > 0) {
+                throw new Error('cleanup callbacks not empty')
+            }
+
             aborted = true;
-            console.log('[ABORT] done, id=', controllerId)
+            console.log(`[ABORT], id=${controllerId}`)
         },
 
         aborted: () => aborted,
@@ -96,14 +101,14 @@ export function createAbortedController(label: string): AbortController {
             }
 
             cleanupCallbacks.push(wrappedCleanup);
-            return wrappedCleanup;
+            return removeCleanup;
         },
 
         race: async function <T>(promise: Promise<T>) {
             return { value: await promise, aborted }
         },
 
-        createAbortSwitchWrapper: <Func extends AnyFunc>(childLabel: string) => {
+        createAbortSwitchWrapper: <Func extends AnyFunc>(options?: AbortControllerOptions) => {
             let currCtrl: AbortController | null = null;
             cleanupCallbacks.push(() => {
                 if (currCtrl) {
@@ -117,34 +122,18 @@ export function createAbortedController(label: string): AbortController {
                     if (currCtrl) {
                         currCtrl.abort();
                     }
-                    currCtrl = createChildController(childLabel);
+                    currCtrl = createChildController(options);
 
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                    return cb(currCtrl, ...args);
+                    return cb(currCtrl, ...args)
                 } as Func
             }
 
             return retFunc;
         },
 
-        createController: (label: string) => {
-            return createChildController(label);
+        createController: (options?: AbortControllerOptions) => {
+            return createChildController(options);
         }
     }
-}
-
-export function useAbort(label: string, abortContext?: AbortContext): AbortContext | null {
-    const [currCtx, setCurrCtx] = useState<AbortController | null>(null);
-
-    useEffect(() => {
-        const controller = abortContext ? abortContext.createController(label) : createAbortedController(label)
-        setCurrCtx(controller);
-
-        return () => {
-            controller.abort();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    return currCtx;
 }

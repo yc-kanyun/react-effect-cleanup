@@ -38,11 +38,9 @@ export default tseslint.config(
         files: ['**/__tests__/**.{ts,tsx}', '**/*.{spec,test}.{ts,tsx}'],
         plugins: {
             vitest,
-            'jest-dom': jestDom,
         },
         rules: {
             ...vitest.configs.recommended.rules,
-            ...jestDom.configs.recommended.rules,
         }
     }
 );

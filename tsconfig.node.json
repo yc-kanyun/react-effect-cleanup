@@ -22,6 +22,6 @@
     "vite.config.ts",
     "uno.config.ts",
     "vitest.config.ts",
-    "jest.setup-after-env.ts"
+    "vitest.setup.ts"
   ]
 }

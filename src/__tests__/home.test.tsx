@@ -31,7 +31,7 @@ describe('Home 页面', () => {
         expect(screen.getByText('Loading....')).toBeTruthy()
 
         act(() => {
-            router.navigate('/foo')
+            void router.navigate('/foo')
         })
 
         expect(await screen.findByText('Foo Page')).toBeTruthy()
