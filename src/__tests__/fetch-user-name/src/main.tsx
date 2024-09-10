@@ -6,7 +6,7 @@ import { Toaster } from 'react-hot-toast';
 
 async function prepare() {
   if (import.meta.env.DEV) {
-    const { worker } = await import('./src/mocks/browser')
+    const { worker } = await import('./mocks/browser')
     return worker.start()
   }
 

@@ -26,7 +26,7 @@ createRoot(root).render(
 ```typescript
 export function setupApp(): AppContext {
   const userStore = createUserStore();
-  const rootEffectController = createAbortedController("root");
+  const rootEffectController = new EffectController("root");
   const effectContextWrapper =
     rootEffectController.createAbortSwitchWrapper("route");
   // ...

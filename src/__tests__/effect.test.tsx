@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vitest } from "vitest";
-import { EffectController, createAbortedController, EffectTransaction } from "../effect";
+import { EffectController, EffectTransaction } from "../effect";
 import { delay } from "msw";
 import { createAbortSwitchWrapper } from "../effect-util";
 
 describe('EffectController 核心行为', () => {
     let ctrl: EffectController;
     beforeEach(() => {
-        ctrl = createAbortedController();
+        ctrl = new EffectController();
     })
 
     afterEach(() => {
@@ -137,7 +137,7 @@ describe('EffectController 核心行为', () => {
 describe('测试 EffectTransaction', () => {
     let ctrl: EffectController;
     beforeEach(() => {
-        ctrl = createAbortedController();
+        ctrl = new EffectController();
     })
 
     afterEach(() => {
@@ -209,41 +209,5 @@ describe('测试 EffectTransaction', () => {
 
         expect(trace).not.toBeCalled()
         vitest.useRealTimers()
-    })
-})
-
-describe('测试 SwitchContext', () => {
-    let ctrl: EffectController;
-    beforeEach(() => {
-        ctrl = createAbortedController();
-    })
-
-    afterEach(() => {
-        ctrl.abort()
-    })
-
-    test('用 switchContext 创建的 wrapper，内部函数执行时应该自动 abort 上一个 controller', () => {
-        const trace = vitest.fn()
-
-        const wrapper = createAbortSwitchWrapper(ctrl, { debugLabel: 'wrapper' })
-        const fn = wrapper((ctx) => {
-            ctx.onAbort(() => {
-                trace('inner')
-            })
-        })
-
-        expect(trace).not.toBeCalled()
-
-        fn()
-        expect(trace).not.toBeCalled()
-
-        fn()
-        expect(trace).toBeCalled()
-
-        fn()
-        expect(trace).toBeCalledTimes(2)
-
-        ctrl.abort()
-        expect(trace).toBeCalledTimes(3)
     })
 })

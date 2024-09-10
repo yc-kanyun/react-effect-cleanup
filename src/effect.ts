@@ -1,34 +1,26 @@
-export interface EffectControllerOptions {
-    debugLabel?: string
-}
+type AbortedFn = () => boolean;
+type AbortFn = () => void;
+type ActionCleanupFn<T> = (value: T) => void;
 
-export type AbortedFn = () => boolean;
-export type AbortFn = () => void;
-export type ActionCleanupFn<T> = (value: T) => void;
-
-interface ActionSuccessResult<T> {
+type ActionResult<T> = {
     aborted: false,
     value: T,
     removeCleanup: () => void,
-}
-
-interface ActionErrorResult<T> {
+} | {
     aborted: true,
     value?: T,
     removeCleanup: () => void,
 }
 
-export type ActionResult<T> = ActionSuccessResult<T> | ActionErrorResult<T>
+export interface EffectControllerOptions {
+    debugLabel?: string
+}
+
 export interface EffectContext {
     aborted: AbortedFn,
 
     onAbort(cleanup: AbortFn): () => void,
 
-    /**
-     * 返回一个子 controller, effectController 被 abort 时，也会 abort 子 controller
-     *
-     * @returns 被 EffectContext 所管理的 controller
-     */
     createController: (options?: EffectControllerOptions) => EffectController,
 }
 
@@ -152,8 +144,4 @@ export class EffectTransaction {
             return { value, aborted: false, removeCleanup } as ActionSuccessResult<RET>
         }) as Promise<ActionResult<RET>>
     }
-}
-
-export function createAbortedController(options?: EffectControllerOptions): EffectController {
-    return new EffectController(options);
 }

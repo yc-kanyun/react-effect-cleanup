@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "dev:fetch-user-name": "vite -c src/__tests__/fetch-user-name/vite.config.ts"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
     "zustand": "^4.5.5",
     "jotai": "^2.9.3",

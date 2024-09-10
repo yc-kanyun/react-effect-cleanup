@@ -27,5 +27,8 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      - name: Linting
+        run: pnpm lint
+
       - name: 运行测试
         run: pnpm test

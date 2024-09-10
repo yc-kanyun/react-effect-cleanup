@@ -1,10 +1,10 @@
 import { RouteObject } from "react-router-dom";
-import { EffectContext, EffectController, createAbortedController, EffectTransaction } from "../../../effect";
+import { EffectContext, EffectController, EffectTransaction } from "../../../effect";
 import toast from "react-hot-toast";
 import { createUserStore } from "./store/user";
 import { RootProvider } from "./store/root-context";
-import { createAbortSwitchWrapper } from "../../../effect-util";
 import { Home } from "./component/home";
+import { createAbortSwitchWrapper } from "../../effect-util";
 
 export interface AppContext {
     userStore: ReturnType<typeof createUserStore>,
@@ -54,7 +54,7 @@ function setupLoadingToastWithPerfectCleanup(ctx: EffectContext, userStore: Retu
 
 export function setupApp(): AppContext {
     const userStore = createUserStore()
-    const rootEffectController = createAbortedController({ debugLabel: 'root' })
+    const rootEffectController = new EffectController({ debugLabel: 'root' })
     const switchContext = createAbortSwitchWrapper(rootEffectController, { debugLabel: 'route' })
 
     function setupHomePage(ctx: EffectContext) {

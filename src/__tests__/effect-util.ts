@@ -1,4 +1,4 @@
-import { EffectContext, EffectController } from "./effect";
+import { EffectContext, EffectController, EffectControllerOptions } from "./effect";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFunc = (...args: any[]) => any;
