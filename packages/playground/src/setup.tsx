@@ -1,6 +1,6 @@
 import { RouteObject } from "react-router-dom";
-import { EffectContext, EffectController, createAbortedController, createAbortSwitchWrapper, EffectTransaction } from "./effect";
-import { Home } from "./component/home";
+import { EffectContext, EffectController, createEffectController, createEffectSwitchWrapper, EffectTransaction } from "@react-effect-cleanup/effect-controller";
+import { Home } from "./components/home";
 import { createUserStore } from "./store/user";
 import { RootProvider } from "./store/root-context";
 import toast from "react-hot-toast";
@@ -53,8 +53,8 @@ function setupLoadingToastWithPerfectCleanup(ctx: EffectContext, userStore: Retu
 
 export function setupApp(): AppContext {
     const userStore = createUserStore()
-    const rootEffectController = createAbortedController({ debugLabel: 'root' })
-    const switchContext = createAbortSwitchWrapper(rootEffectController, { debugLabel: 'route' })
+    const rootEffectController = createEffectController({ debugLabel: 'root' })
+    const switchContext = createEffectSwitchWrapper(rootEffectController, { debugLabel: 'route' })
 
     function setupHomePage(ctx: EffectContext) {
         // 下面的写法可以阻塞页面加载，让 router 展示全局 loading

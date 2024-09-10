@@ -1,45 +1,15 @@
-export interface EffectControllerOptions {
-    debugLabel?: string
-}
-
-export type AbortedFn = () => boolean;
-export type AbortFn = () => void;
-export type ActionCleanupFn<T> = (value: T) => void;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyFunc = (...args: any[]) => any;
-
-export type AbortSwitchCallback<Func extends AnyFunc> = (
-    effectContext: EffectContext,
-    ...args: Parameters<Func>
-) => ReturnType<Func>;
-export type AbortSwitchWrapperFn<Func extends AnyFunc> = (cb: AbortSwitchCallback<Func>) => Func
-
-interface ActionSuccessResult<T> {
-    aborted: false,
-    value: T,
-    removeCleanup: () => void,
-}
-
-interface ActionErrorResult<T> {
-    aborted: true,
-    value?: T,
-    removeCleanup: () => void,
-}
-
-export type ActionResult<T> = ActionSuccessResult<T> | ActionErrorResult<T>
-export interface EffectContext {
-    aborted: AbortedFn,
-
-    onAbort(cleanup: AbortFn): () => void,
-
-    /**
-     * 返回一个子 controller, effectController 被 abort 时，也会 abort 子 controller
-     *
-     * @returns 被 EffectContext 所管理的 controller
-     */
-    createController: (options?: EffectControllerOptions) => EffectController,
-}
+import {
+    EffectControllerOptions,
+    AnyFunc,
+    EffectSwitchWrapperFn,
+    EffectSwitchCallback,
+    EffectContext,
+    ActionResult,
+    ActionErrorResult,
+    ActionSuccessResult,
+    ActionCleanupFn,
+    AbortFn,
+} from '../types'
 
 export class EffectController implements EffectContext {
     private readonly cleanupCallbacks: AbortFn[] = [];
@@ -163,11 +133,11 @@ export class EffectTransaction {
     }
 }
 
-export function createAbortedController(options?: EffectControllerOptions): EffectController {
+export function createEffectController(options?: EffectControllerOptions): EffectController {
     return new EffectController(options);
 }
 
-export function createAbortSwitchWrapper<Func extends AnyFunc>(effectContext: EffectContext, options?: EffectControllerOptions): AbortSwitchWrapperFn<Func> {
+export function createEffectSwitchWrapper<Func extends AnyFunc>(effectContext: EffectContext, options?: EffectControllerOptions): EffectSwitchWrapperFn<Func> {
     let currCtrl: EffectController | null = null;
     effectContext.onAbort(() => {
         if (currCtrl) {
@@ -176,7 +146,7 @@ export function createAbortSwitchWrapper<Func extends AnyFunc>(effectContext: Ef
         }
     })
 
-    const retFunc: AbortSwitchWrapperFn<Func> = (cb: AbortSwitchCallback<Func>) => {
+    const retFunc: EffectSwitchWrapperFn<Func> = (cb: EffectSwitchCallback<Func>) => {
         return ((...args: Parameters<Func>): ReturnType<Func> => {
             if (currCtrl) {
                 currCtrl.abort();

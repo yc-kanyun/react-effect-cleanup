@@ -1,12 +1,12 @@
 import { createRoot } from 'react-dom/client'
 import { StrictMode } from 'react';
 import { setupApp } from './setup';
-import { createHashRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 async function prepare() {
   if (import.meta.env.DEV) {
-    const { worker } = await import('./mocks/browser')
+    const { worker } = await import('./mock-server/browser')
     return worker.start()
   }
 
@@ -20,7 +20,7 @@ void prepare().then(() => {
   }
 
   const appContext = setupApp()
-  const router = createHashRouter(appContext.routes)
+  const router = createBrowserRouter(appContext.routes)
 
   createRoot(root).render(
     <StrictMode>

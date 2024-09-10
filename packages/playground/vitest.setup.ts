@@ -1,6 +1,6 @@
 import { afterEach } from "vitest";
-import { server } from "./src/mocks/server";
 import { beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { server } from './src/mock-server/server'
 
 beforeAll(() => {
     server.listen()

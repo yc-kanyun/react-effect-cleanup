@@ -1,5 +1,5 @@
 import { useContext } from "react"
-import { RootContext } from "../store/root-context"
+import { RootContext } from "../../store/root-context"
 
 export function Home() {
     const { userStore, rootEffectContext } = useContext(RootContext)
