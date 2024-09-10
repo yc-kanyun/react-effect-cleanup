@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vitest } from "vitest";
 import { EffectController, createAbortedController, createAbortSwitchWrapper, EffectTransaction } from "../effect";
 import { delay } from "msw";
 
-describe('abort 的行为', () => {
+describe('EffectController 核心行为', () => {
     let ctrl: EffectController;
     beforeEach(() => {
         ctrl = createAbortedController();
@@ -126,6 +126,23 @@ describe('abort 的行为', () => {
         expect(ctrl.aborted()).toBe(false)
     })
 
+    test('已经 abort 的 controller 不应该能创建 child controller', () => {
+        ctrl.abort()
+
+        expect(() => ctrl.createController()).toThrow('abort')
+    })
+})
+
+describe('测试 EffectTransaction', () => {
+    let ctrl: EffectController;
+    beforeEach(() => {
+        ctrl = createAbortedController();
+    })
+
+    afterEach(() => {
+        ctrl.abort()
+    })
+
     test('用 action 来同时创建副作用和取消副作用', async () => {
         const transaction = new EffectTransaction(ctrl)
         let count = 0;
@@ -171,6 +188,39 @@ describe('abort 的行为', () => {
         expect(trace).not.nthCalledWith(2, 'secondAction')
     })
 
+    test('action 中创建的资源，cleanup 应该有办法拿到', () => {
+        vitest.useFakeTimers()
+        const trace = vitest.fn()
+
+        const txn = new EffectTransaction(ctrl)
+        txn.action(() => {
+            const timer = setTimeout(() => {
+                trace('action')
+            }, 100)
+
+            return timer;
+        }, (timer) => {
+            clearTimeout(timer)
+        })
+
+        ctrl.abort()
+        vitest.runAllTimers()
+
+        expect(trace).not.toBeCalled()
+        vitest.useRealTimers()
+    })
+})
+
+describe('测试 SwitchContext', () => {
+    let ctrl: EffectController;
+    beforeEach(() => {
+        ctrl = createAbortedController();
+    })
+
+    afterEach(() => {
+        ctrl.abort()
+    })
+
     test('用 switchContext 创建的 wrapper，内部函数执行时应该自动 abort 上一个 controller', () => {
         const trace = vitest.fn()
 
@@ -194,33 +244,5 @@ describe('abort 的行为', () => {
 
         ctrl.abort()
         expect(trace).toBeCalledTimes(3)
-    })
-
-    test('已经 abort 的 controller 不应该能创建 child controller', () => {
-        ctrl.abort()
-
-        expect(() => ctrl.createController()).toThrow('abort')
-    })
-
-    test('action 中创建的资源，cleanup 应该有办法拿到', () => {
-        vitest.useFakeTimers()
-        const trace = vitest.fn()
-
-        const txn = new EffectTransaction(ctrl)
-        txn.action(() => {
-            const timer = setTimeout(() => {
-                trace('action')
-            }, 100)
-
-            return timer;
-        }, (timer) => {
-            clearTimeout(timer)
-        })
-
-        ctrl.abort()
-        vitest.runAllTimers()
-
-        expect(trace).not.toBeCalled()
-        vitest.useRealTimers()
     })
 })
