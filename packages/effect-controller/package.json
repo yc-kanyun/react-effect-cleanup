@@ -1,0 +1,19 @@
+{
+    "name": "@react-effect-cleanup/effect-controller",
+    "private": true,
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "build": "tsc -b && vite build",
+        "test:watch": "vitest watch",
+        "test:run": "vitest run"
+    },
+    "devDependencies": {
+        "vite": "^5.4.0",
+        "vite-plugin-dts": "^4.2.1",
+        "vite-plugin-remove-console": "^2.2.0",
+        "vitest": "^2.0.5"
+    },
+    "types": "dist/index.d.ts",
+    "main": "dist/index.js"
+}

@@ -1,5 +1,5 @@
+import { EffectContext, EffectTransaction } from '@react-effect-cleanup/effect-controller';
 import { create } from "zustand";
-import { EffectContext, EffectTransaction } from "../effect";
 
 export interface UserState {
     name: string,

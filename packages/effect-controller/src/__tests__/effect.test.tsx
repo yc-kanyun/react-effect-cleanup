@@ -1,11 +1,20 @@
 import { afterEach, beforeEach, describe, expect, test, vitest } from "vitest";
-import { EffectController, createAbortedController, createAbortSwitchWrapper, EffectTransaction } from "../effect";
-import { delay } from "msw";
+import { EffectController, createEffectController, createEffectSwitchWrapper, EffectTransaction } from "../chore";
+
+const delay = (time: number) => {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve(1)
+        }, time)
+    })
+}
 
 describe('EffectController 核心行为', () => {
-    let ctrl: EffectController;
+
+    let ctrl: EffectController
+
     beforeEach(() => {
-        ctrl = createAbortedController();
+        ctrl = createEffectController()
     })
 
     afterEach(() => {
@@ -24,8 +33,12 @@ describe('EffectController 核心行为', () => {
     test('后注册的 callback 应该先执行', () => {
         const trace = vitest.fn()
 
-        ctrl.onAbort(() => { trace(1) })
-        ctrl.onAbort(() => { trace(2) })
+        ctrl.onAbort(() => {
+            trace(1)
+        })
+        ctrl.onAbort(() => {
+            trace(2)
+        })
 
         ctrl.abort()
 
@@ -38,8 +51,12 @@ describe('EffectController 核心行为', () => {
         const trace = vitest.fn()
 
         const childCtrl = ctrl.createController()
-        childCtrl.onAbort(() => { trace('child') })
-        ctrl.onAbort(() => { trace('parent') })
+        childCtrl.onAbort(() => {
+            trace('child')
+        })
+        ctrl.onAbort(() => {
+            trace('parent')
+        })
 
         ctrl.abort()
 
@@ -136,7 +153,7 @@ describe('EffectController 核心行为', () => {
 describe('测试 EffectTransaction', () => {
     let ctrl: EffectController;
     beforeEach(() => {
-        ctrl = createAbortedController();
+        ctrl = createEffectController();
     })
 
     afterEach(() => {
@@ -214,7 +231,7 @@ describe('测试 EffectTransaction', () => {
 describe('测试 SwitchContext', () => {
     let ctrl: EffectController;
     beforeEach(() => {
-        ctrl = createAbortedController();
+        ctrl = createEffectController();
     })
 
     afterEach(() => {
@@ -224,7 +241,8 @@ describe('测试 SwitchContext', () => {
     test('用 switchContext 创建的 wrapper，内部函数执行时应该自动 abort 上一个 controller', () => {
         const trace = vitest.fn()
 
-        const wrapper = createAbortSwitchWrapper(ctrl, { debugLabel: 'wrapper' })
+        const wrapper = createEffectSwitchWrapper(ctrl, { debugLabel: 'wrapper' })
+
         const fn = wrapper((ctx) => {
             ctx.onAbort(() => {
                 trace('inner')
