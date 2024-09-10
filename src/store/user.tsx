@@ -13,7 +13,7 @@ export function createUserStore() {
         _loading: false,
         fetch: async (ctx) => {
             const txn = new EffectTransaction(ctx)
-            const { value, aborted, removeCleanup } = await txn.asyncAction(async () => {
+            const { value, aborted, removeCleanup } = await txn.actAsync(async () => {
                 set({ _loading: true })
 
                 const res = await fetch('/api/users/current');

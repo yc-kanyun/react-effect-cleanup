@@ -21,7 +21,7 @@ function setupLoadingToastWithPerfectCleanup(ctx: EffectContext, userStore: Retu
     let loadingToastId: string | null = null;
 
     const txn = new EffectTransaction(ctx)
-    txn.action(() => {
+    txn.act(() => {
         return userStore.subscribe(state => {
             if (state._loading && !loadingToastId) {
                 loadingToastId = toast.loading('Loading...')
@@ -31,7 +31,7 @@ function setupLoadingToastWithPerfectCleanup(ctx: EffectContext, userStore: Retu
                 const currToastId = loadingToastId
                 loadingToastId = null
 
-                txn.action(() => {
+                txn.act(() => {
                     const timer = setTimeout(() => {
                         toast.dismiss(currToastId)
                     }, 1000)

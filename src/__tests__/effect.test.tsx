@@ -146,7 +146,7 @@ describe('测试 EffectTransaction', () => {
     test('用 action 来同时创建副作用和取消副作用', async () => {
         const transaction = new EffectTransaction(ctrl)
         let count = 0;
-        await transaction.asyncAction(async () => {
+        await transaction.actAsync(async () => {
             await delay(10).then(() => {
                 count += 1;
             })
@@ -167,12 +167,12 @@ describe('测试 EffectTransaction', () => {
         async function action() {
             const transaction = new EffectTransaction(ctrl)
 
-            await transaction.asyncAction(async () => {
+            await transaction.actAsync(async () => {
                 await delay(100);
                 trace('firstAction')
             })
 
-            await transaction.asyncAction(async () => {
+            await transaction.actAsync(async () => {
                 await delay(100);
                 trace('secondAction')
             })
@@ -193,7 +193,7 @@ describe('测试 EffectTransaction', () => {
         const trace = vitest.fn()
 
         const txn = new EffectTransaction(ctrl)
-        txn.action(() => {
+        txn.act(() => {
             const timer = setTimeout(() => {
                 trace('action')
             }, 100)

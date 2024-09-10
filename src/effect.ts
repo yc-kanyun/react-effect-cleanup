@@ -132,7 +132,7 @@ export class EffectTransaction {
         this.context = context;
     }
 
-    action<RET>(callback: () => RET, cleanup?: ActionCleanupFn<RET>): ActionResult<RET> {
+    act<RET>(callback: () => RET, cleanup?: ActionCleanupFn<RET>): ActionResult<RET> {
         if (this.context.aborted()) {
             return { aborted: true, removeCleanup: () => void 0 };
         }
@@ -146,7 +146,7 @@ export class EffectTransaction {
         return { aborted: false, value: ret, removeCleanup: removeCleanup };
     }
 
-    asyncAction<RET>(callback: () => PromiseLike<RET>, cleanup?: ActionCleanupFn<RET>): Promise<ActionResult<RET>> {
+    actAsync<RET>(callback: () => PromiseLike<RET>, cleanup?: ActionCleanupFn<RET>): Promise<ActionResult<RET>> {
         if (this.context.aborted()) {
             return Promise.resolve({ aborted: true, removeCleanup: () => void 0 })
         }
