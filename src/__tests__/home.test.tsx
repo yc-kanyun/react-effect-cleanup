@@ -9,8 +9,6 @@ describe('Home 页面', () => {
     let router: ReturnType<typeof createMemoryRouter>;
 
     beforeEach(() => {
-        vi.useFakeTimers()
-
         appContext = setupApp();
         router = createMemoryRouter(appContext.routes);
         render(<RouterProvider router={router} />, { wrapper: StrictMode })
@@ -18,7 +16,6 @@ describe('Home 页面', () => {
 
     afterEach(() => {
         cleanup()
-        vi.useRealTimers()
     })
 
     it('应该能渲染出用户名', async () => {

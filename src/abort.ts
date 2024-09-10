@@ -1,4 +1,4 @@
-export interface AbortControllerOptions {
+export interface EffectControllerOptions {
     debugLabel?: string
 }
 
@@ -10,7 +10,7 @@ export type CleanupFn = () => void;
 type AnyFunc = (...args: any[]) => any;
 
 export type AbortSwitchCallback<Func extends AnyFunc> = (
-    abortContext: AbortContext,
+    effectContext: EffectContext,
     ...args: Parameters<Func>
 ) => ReturnType<Func>;
 export type AbortSwitchWrapperFn<Func extends AnyFunc> = (cb: AbortSwitchCallback<Func>) => Func
@@ -29,142 +29,138 @@ interface ActionErrorResult<T> {
 
 type ActionResult<T> = ActionSuccessResult<T> | ActionErrorResult<T>
 
-export interface AbortContext {
+export interface EffectContext {
     aborted: AbortedFn,
     onAbort(cleanup: CleanupFn): () => void,
     race<T>(promise: Promise<T>): Promise<{ value: T, aborted: boolean }>,
 
     /**
-     * 返回一个子 switchContext，当前 abortContext 被 abort 时，也会 abort 子 switchContext
+     * 返回一个子 controller, effectController 被 abort 时，也会 abort 子 controller
      *
-     * @returns 被 AbortContext 所管理的 switchWrapper
+     * @returns 被 EffectContext 所管理的 controller
      */
-    createAbortSwitchWrapper: <Func extends AnyFunc>(options?: AbortControllerOptions) => AbortSwitchWrapperFn<Func>,
-
-    /**
-     * 返回一个子 controller, abortController 被 abort 时，也会 abort 子 controller
-     *
-     * @returns 被 AbortContext 所管理的 controller
-     */
-    createController: (options?: AbortControllerOptions) => AbortController,
+    createController: (options?: EffectControllerOptions) => EffectController,
 
     action<T>(action: () => Promise<T> | T, cleanup?: CleanupFn): Promise<ActionResult<T>>
 }
 
-export interface AbortController extends AbortContext {
-    abort: AbortFn,
-}
+export class EffectController implements EffectContext {
+    private readonly options: EffectControllerOptions;
+    private readonly cleanupCallbacks: CleanupFn[] = [];
+    private readonly childControllers: EffectController[] = [];
+    private _aborted = false;
 
-let controllerCounter = 0
-export function createAbortedController(options?: AbortControllerOptions): AbortController {
-    const currCount = controllerCounter++;
-    const controllerId = `${options?.debugLabel ?? ''}-${String(currCount)}`
-    console.log(`[CREATE], id=${controllerId}`)
-    const cleanupCallbacks: CleanupFn[] = []
-    const childControllers: AbortController[] = []
-    let aborted = false;
+    constructor(options?: EffectControllerOptions) {
+        this.options = { ...options }
+    }
 
-    function createChildController(options?: AbortControllerOptions) {
-        const ctrl = createAbortedController(options);
-        childControllers.push(ctrl)
+    private createChildController(options?: EffectControllerOptions): EffectController {
+        const ctrl = new EffectController(options);
+        this.childControllers.push(ctrl);
 
         ctrl.onAbort(() => {
-            const idx = childControllers.indexOf(ctrl)
+            const idx = this.childControllers.indexOf(ctrl);
             if (idx >= 0) {
-                childControllers.splice(idx, 1)
+                this.childControllers.splice(idx, 1);
             }
-        })
+        });
 
         return ctrl;
     }
 
-    function onAbort(cleanup: CleanupFn) {
+    abort(): void {
+        if (this._aborted) {
+            return;
+        }
+
+        for (let i = this.childControllers.length - 1; i >= 0; i--) {
+            this.childControllers[i].abort();
+        }
+        this.childControllers.length = 0;
+
+        for (let i = this.cleanupCallbacks.length - 1; i >= 0; i--) {
+            const cb = this.cleanupCallbacks[i];
+            cb();
+        }
+
+        if (this.cleanupCallbacks.length > 0) {
+            throw new Error('cleanup callbacks not empty');
+        }
+
+        this._aborted = true;
+        if (this.options.debugLabel) {
+            console.log(`[ABORT], id=${this.options.debugLabel}`);
+        }
+    }
+
+    aborted(): boolean {
+        return this._aborted;
+    }
+
+    onAbort(cleanup: CleanupFn): () => void {
         const wrappedCleanup = () => {
             cleanup();
             removeCleanup();
-        }
+        };
 
         const removeCleanup = () => {
-            const idx = cleanupCallbacks.indexOf(wrappedCleanup);
+            const idx = this.cleanupCallbacks.indexOf(wrappedCleanup);
             if (idx >= 0) {
-                cleanupCallbacks.splice(idx, 1)
+                this.cleanupCallbacks.splice(idx, 1);
             }
-        }
+        };
 
-        cleanupCallbacks.push(wrappedCleanup);
+        this.cleanupCallbacks.push(wrappedCleanup);
         return removeCleanup;
     }
 
-
-    return {
-        abort: () => {
-            if (aborted) {
-                return;
-            }
-
-            for (let i = childControllers.length - 1; i >= 0; i--) {
-                childControllers[i].abort()
-            }
-            childControllers.length = 0
-
-            for (let i = cleanupCallbacks.length - 1; i >= 0; i--) {
-                const cb = cleanupCallbacks[i]
-                cb();
-            }
-
-            if (cleanupCallbacks.length > 0) {
-                throw new Error('cleanup callbacks not empty')
-            }
-
-            aborted = true;
-            console.log(`[ABORT], id=${controllerId}`)
-        },
-
-        aborted: () => aborted,
-
-        onAbort,
-
-        race: async function <T>(promise: Promise<T>) {
-            return { value: await promise, aborted }
-        },
-
-        createAbortSwitchWrapper: <Func extends AnyFunc>(options?: AbortControllerOptions) => {
-            let currCtrl: AbortController | null = null;
-            cleanupCallbacks.push(() => {
-                if (currCtrl) {
-                    currCtrl.abort()
-                    currCtrl = null;
-                }
-            })
-
-            const retFunc: AbortSwitchWrapperFn<Func> = (cb: AbortSwitchCallback<Func>) => {
-                return function (...args: Parameters<Func>): ReturnType<Func> {
-                    if (currCtrl) {
-                        currCtrl.abort();
-                    }
-                    currCtrl = createChildController(options);
-
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                    return cb(currCtrl, ...args)
-                } as Func
-            }
-
-            return retFunc;
-        },
-
-        createController: (options?: AbortControllerOptions) => {
-            return createChildController(options);
-        },
-
-        action: async <T>(action: () => Promise<T>, cleanup?: CleanupFn) => {
-            if (aborted) {
-                return { aborted: true, removeCleanup: () => void (0) }
-            }
-
-            const value = await action();
-
-            const removeCleanup = onAbort(cleanup ? cleanup : () => void (0))
-            return { value, aborted, removeCleanup }
-        }
+    async race<T>(promise: Promise<T>): Promise<{ value: T; aborted: boolean }> {
+        return { value: await promise, aborted: this._aborted };
     }
+
+    createController(options?: EffectControllerOptions): EffectController {
+        if (this._aborted) {
+            throw new Error('aborted controller can\'t create child controller');
+        }
+
+        return this.createChildController(options);
+    }
+
+    async action<T>(action: () => Promise<T>, cleanup?: CleanupFn): Promise<ActionResult<T>> {
+        if (this._aborted) {
+            return { aborted: true, removeCleanup: () => void 0 };
+        }
+
+        const value = await action();
+        const removeCleanup = this.onAbort(cleanup ?? (() => void 0));
+        return { value, aborted: this._aborted, removeCleanup };
+    }
+}
+
+export function createAbortedController(options?: EffectControllerOptions): EffectController {
+    return new EffectController(options);
+}
+
+export function createAbortSwitchWrapper<Func extends AnyFunc>(effectContext: EffectContext, options?: EffectControllerOptions): AbortSwitchWrapperFn<Func> {
+    let currCtrl: EffectController | null = null;
+    effectContext.onAbort(() => {
+        if (currCtrl) {
+            currCtrl.abort();
+            currCtrl = null;
+        }
+    })
+
+    const retFunc: AbortSwitchWrapperFn<Func> = (cb: AbortSwitchCallback<Func>) => {
+        return ((...args: Parameters<Func>): ReturnType<Func> => {
+            if (currCtrl) {
+                currCtrl.abort();
+            }
+            currCtrl = effectContext.createController(options);
+
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return cb(currCtrl, ...args);
+        }) as Func;
+    };
+
+    return retFunc;
 }

@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import { AbortContext } from "../abort";
+import { EffectContext } from "../abort";
 
 export interface UserState {
     name: string,
     _loading: boolean,
-    fetch: (ctx: AbortContext) => Promise<void>
+    fetch: (ctx: EffectContext) => Promise<void>
 }
 
 export function createUserStore() {
@@ -25,7 +25,7 @@ export function createUserStore() {
                 return;
             }
             removeCleanup()
-            set({ name: value.name })
+            set({ _loading: false, name: value.name })
         }
     }))
 }

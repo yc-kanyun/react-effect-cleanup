@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test, vitest } from "vitest";
-import { AbortController, createAbortedController } from "../abort";
+import { EffectController, createAbortedController, createAbortSwitchWrapper } from "../abort";
 import { delay } from "msw";
 
 describe('abort 的行为', () => {
-    let ctrl: AbortController;
+    let ctrl: EffectController;
     beforeEach(() => {
         ctrl = createAbortedController();
     })
@@ -93,7 +93,7 @@ describe('abort 的行为', () => {
         expect(trace).not.toBeCalled()
     })
 
-    test('abortContext 中的 aborted 状态应该随着 abort 方法的调用被修改', () => {
+    test('effectContext 中的 aborted 状态应该随着 abort 方法的调用被修改', () => {
         expect(ctrl.aborted()).toBe(false)
 
         ctrl.abort()
@@ -162,5 +162,36 @@ describe('abort 的行为', () => {
         expect(trace).toHaveBeenCalledTimes(1)
         expect(trace).nthCalledWith(1, 'firstAction')
         expect(trace).not.nthCalledWith(2, 'secondAction')
+    })
+
+    test('用 switchContext 创建的 wrapper，内部函数执行时应该自动 abort 上一个 controller', () => {
+        const trace = vitest.fn()
+
+        const wrapper = createAbortSwitchWrapper(ctrl, { debugLabel: 'wrapper' })
+        const fn = wrapper((ctx) => {
+            ctx.onAbort(() => {
+                trace('inner')
+            })
+        })
+
+        expect(trace).not.toBeCalled()
+
+        fn()
+        expect(trace).not.toBeCalled()
+
+        fn()
+        expect(trace).toBeCalled()
+
+        fn()
+        expect(trace).toBeCalledTimes(2)
+
+        ctrl.abort()
+        expect(trace).toBeCalledTimes(3)
+    })
+
+    test('已经 abort 的 controller 不应该能创建 child controller', () => {
+        ctrl.abort()
+
+        expect(() => ctrl.createController()).toThrow('abort')
     })
 })

@@ -26,9 +26,9 @@ createRoot(root).render(
 ```typescript
 export function setupApp(): AppContext {
   const userStore = createUserStore();
-  const rootAbortController = createAbortedController("root");
-  const abortContextWrapper =
-    rootAbortController.createAbortSwitchWrapper("route");
+  const rootEffectController = createAbortedController("root");
+  const effectContextWrapper =
+    rootEffectController.createAbortSwitchWrapper("route");
   // ...
 }
 ```
@@ -36,7 +36,7 @@ export function setupApp(): AppContext {
 - routes 的 loader 方法直接引用这些 store，并实现页面的初始化。而不是依赖 effect 做类似的事情
 
 ```typescript
-function setupHomePage(ctx: AbortContext) {
+function setupHomePage(ctx: EffectContext) {
   // user name 不阻塞页面加载，局部展示 loading
   void userStore.getState().fetch(ctx);
 
@@ -57,13 +57,13 @@ routes: [
     element: (
       <RootProvider
         userStore={userStore}
-        rootAbortContext={rootAbortController}
+        rootEffectContext={rootEffectController}
       >
         <Home />
       </RootProvider>
     ),
 
-    loader: abortContextWrapper(setupHomePage),
+    loader: effectContextWrapper(setupHomePage),
   },
 ];
 ```

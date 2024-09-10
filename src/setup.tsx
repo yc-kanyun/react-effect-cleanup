@@ -1,5 +1,5 @@
 import { RouteObject } from "react-router-dom";
-import { AbortContext, AbortController, createAbortedController } from "./abort";
+import { EffectContext, EffectController, createAbortedController, createAbortSwitchWrapper } from "./abort";
 import { Home } from "./component/home";
 import { createUserStore } from "./store/user";
 import { RootProvider } from "./store/root-context";
@@ -7,26 +7,26 @@ import toast from "react-hot-toast";
 
 export interface AppContext {
     userStore: ReturnType<typeof createUserStore>,
-    rootAbortController: AbortController,
+    rootEffectController: EffectController,
     routes: RouteObject[]
 }
 
 /**
  * 在 Loading 状态时展示一个 toast，并在 loading 成功后 1000ms 后自动关闭
  * 
- * @param pageAbortContext 
+ * @param pageEffectContext 
  * @param userStore 
  */
-function setupLoadingToastWithPerfectCleanup(pageAbortContext: AbortContext, userStore: ReturnType<typeof createUserStore>) {
+function setupLoadingToastWithPerfectCleanup(pageEffectContext: EffectContext, userStore: ReturnType<typeof createUserStore>) {
     let loadingToastId: string | null = null;
     // 切换页面时立即取消 toast
-    pageAbortContext.onAbort(() => {
+    pageEffectContext.onAbort(() => {
         if (loadingToastId) {
             toast.dismiss(loadingToastId)
         }
     })
 
-    pageAbortContext.onAbort(userStore.subscribe(state => {
+    pageEffectContext.onAbort(userStore.subscribe(state => {
         if (state._loading && !loadingToastId) {
             loadingToastId = toast.loading('Loading...')
         }
@@ -38,7 +38,7 @@ function setupLoadingToastWithPerfectCleanup(pageAbortContext: AbortContext, use
             const timer = setTimeout(() => {
                 toast.dismiss(currToastId)
             }, 1000)
-            pageAbortContext.onAbort(() => {
+            pageEffectContext.onAbort(() => {
                 clearTimeout(timer)
             })
         }
@@ -46,7 +46,7 @@ function setupLoadingToastWithPerfectCleanup(pageAbortContext: AbortContext, use
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function setupLoadingToastWithoutCleanup(ctx: AbortContext, userStore: ReturnType<typeof createUserStore>) {
+function setupLoadingToastWithoutCleanup(ctx: EffectContext, userStore: ReturnType<typeof createUserStore>) {
     let loadingToastId: string | null = null;
     ctx.onAbort(userStore.subscribe(state => {
         if (state._loading && !loadingToastId) {
@@ -66,10 +66,10 @@ function setupLoadingToastWithoutCleanup(ctx: AbortContext, userStore: ReturnTyp
 
 export function setupApp(): AppContext {
     const userStore = createUserStore()
-    const rootAbortController = createAbortedController({ debugLabel: 'root' })
-    const abortContextWrapper = rootAbortController.createAbortSwitchWrapper({ debugLabel: 'route' })
+    const rootEffectController = createAbortedController({ debugLabel: 'root' })
+    const switchContext = createAbortSwitchWrapper(rootEffectController, { debugLabel: 'route' })
 
-    function setupHomePage(ctx: AbortContext) {
+    function setupHomePage(ctx: EffectContext) {
         // 下面的写法可以阻塞页面加载，让 router 展示全局 loading
         // await userStore.getState().fetch(ctx)
 
@@ -83,25 +83,25 @@ export function setupApp(): AppContext {
 
     return {
         userStore,
-        rootAbortController,
+        rootEffectController,
         routes: [
             {
                 path: '/',
 
-                element: <RootProvider userStore={userStore} rootAbortContext={rootAbortController}>
+                element: <RootProvider userStore={userStore} rootEffectContext={rootEffectController}>
                     <Home />
                 </RootProvider>,
 
-                loader: abortContextWrapper(setupHomePage)
+                loader: switchContext(setupHomePage)
             },
             {
                 path: '/foo',
 
-                element: <RootProvider userStore={userStore} rootAbortContext={rootAbortController}>
+                element: <RootProvider userStore={userStore} rootEffectContext={rootEffectController}>
                     <div>Foo Page</div>
                 </RootProvider>,
 
-                loader: abortContextWrapper(() => Promise.resolve(null))
+                loader: switchContext(() => Promise.resolve(null))
             }
         ]
     }
