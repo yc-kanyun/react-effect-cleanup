@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vitest } from "vitest";
-import { EffectController, createAbortedController, createAbortSwitchWrapper } from "../effect";
+import { EffectController, createAbortedController, createAbortSwitchWrapper, EffectTransaction } from "../effect";
 import { delay } from "msw";
 
 describe('abort 的行为', () => {
@@ -127,8 +127,9 @@ describe('abort 的行为', () => {
     })
 
     test('用 action 来同时创建副作用和取消副作用', async () => {
+        const transaction = new EffectTransaction(ctrl)
         let count = 0;
-        await ctrl.asyncAction(async () => {
+        await transaction.asyncAction(async () => {
             await delay(10).then(() => {
                 count += 1;
             })
@@ -147,12 +148,14 @@ describe('abort 的行为', () => {
         const trace = vitest.fn()
 
         async function action() {
-            await ctrl.asyncAction(async () => {
+            const transaction = new EffectTransaction(ctrl)
+
+            await transaction.asyncAction(async () => {
                 await delay(100);
                 trace('firstAction')
             })
 
-            await ctrl.asyncAction(async () => {
+            await transaction.asyncAction(async () => {
                 await delay(100);
                 trace('secondAction')
             })
@@ -203,7 +206,8 @@ describe('abort 的行为', () => {
         vitest.useFakeTimers()
         const trace = vitest.fn()
 
-        ctrl.action(() => {
+        const txn = new EffectTransaction(ctrl)
+        txn.action(() => {
             const timer = setTimeout(() => {
                 trace('action')
             }, 100)

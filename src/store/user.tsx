@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { EffectContext } from "../effect";
+import { EffectContext, EffectTransaction } from "../effect";
 
 export interface UserState {
     name: string,
@@ -12,7 +12,8 @@ export function createUserStore() {
         name: '',
         _loading: false,
         fetch: async (ctx) => {
-            const { value, aborted, removeCleanup } = await ctx.asyncAction(async () => {
+            const txn = new EffectTransaction(ctx)
+            const { value, aborted, removeCleanup } = await txn.asyncAction(async () => {
                 set({ _loading: true })
 
                 const res = await fetch('/api/users/current');

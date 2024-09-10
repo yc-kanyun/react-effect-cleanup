@@ -1,5 +1,5 @@
 import { RouteObject } from "react-router-dom";
-import { EffectContext, EffectController, createAbortedController, createAbortSwitchWrapper } from "./effect";
+import { EffectContext, EffectController, createAbortedController, createAbortSwitchWrapper, EffectTransaction } from "./effect";
 import { Home } from "./component/home";
 import { createUserStore } from "./store/user";
 import { RootProvider } from "./store/root-context";
@@ -20,7 +20,8 @@ export interface AppContext {
 function setupLoadingToastWithPerfectCleanup(ctx: EffectContext, userStore: ReturnType<typeof createUserStore>) {
     let loadingToastId: string | null = null;
 
-    ctx.action(() => {
+    const txn = new EffectTransaction(ctx)
+    txn.action(() => {
         return userStore.subscribe(state => {
             if (state._loading && !loadingToastId) {
                 loadingToastId = toast.loading('Loading...')
@@ -30,7 +31,7 @@ function setupLoadingToastWithPerfectCleanup(ctx: EffectContext, userStore: Retu
                 const currToastId = loadingToastId
                 loadingToastId = null
 
-                ctx.action(() => {
+                txn.action(() => {
                     const timer = setTimeout(() => {
                         toast.dismiss(currToastId)
                     }, 1000)

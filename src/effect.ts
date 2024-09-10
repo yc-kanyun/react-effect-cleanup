@@ -39,10 +39,6 @@ export interface EffectContext {
      * @returns 被 EffectContext 所管理的 controller
      */
     createController: (options?: EffectControllerOptions) => EffectController,
-
-    action: <RET>(action: () => RET, cleanup?: ActionCleanupFn<RET>) => ActionResult<RET>
-
-    asyncAction: <RET>(action: () => PromiseLike<RET>, cleanup?: ActionCleanupFn<RET>) => Promise<ActionResult<RET>>
 }
 
 export class EffectController implements EffectContext {
@@ -127,14 +123,23 @@ export class EffectController implements EffectContext {
         return this.createChildController(options);
     }
 
+}
+
+export class EffectTransaction {
+    private readonly context: EffectContext;
+
+    constructor(context: EffectContext) {
+        this.context = context;
+    }
+
     action<RET>(callback: () => RET, cleanup?: ActionCleanupFn<RET>): ActionResult<RET> {
-        if (this._aborted) {
+        if (this.context.aborted()) {
             return { aborted: true, removeCleanup: () => void 0 };
         }
 
         const ret = callback()
 
-        const removeCleanup = cleanup ? this.onAbort(() => {
+        const removeCleanup = cleanup ? this.context.onAbort(() => {
             cleanup(ret)
         }) : () => void 0;
 
@@ -142,17 +147,17 @@ export class EffectController implements EffectContext {
     }
 
     asyncAction<RET>(callback: () => PromiseLike<RET>, cleanup?: ActionCleanupFn<RET>): Promise<ActionResult<RET>> {
-        if (this._aborted) {
+        if (this.context.aborted()) {
             return Promise.resolve({ aborted: true, removeCleanup: () => void 0 })
         }
 
         return callback().then(value => {
-            if (this._aborted) {
+            if (this.context.aborted()) {
                 cleanup?.(value);
                 return { aborted: true, removeCleanup: () => { void 0 } } as ActionErrorResult<RET>
             };
 
-            const removeCleanup = cleanup ? this.onAbort(() => { cleanup(value) }) : () => void 0;
+            const removeCleanup = cleanup ? this.context.onAbort(() => { cleanup(value) }) : () => void 0;
             return { value, aborted: false, removeCleanup } as ActionSuccessResult<RET>
         }) as Promise<ActionResult<RET>>
     }
