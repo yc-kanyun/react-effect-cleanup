@@ -4,7 +4,7 @@ export interface EffectControllerOptions {
 
 export type AbortedFn = () => boolean;
 export type AbortFn = () => void;
-export type CleanupFn = () => void;
+export type ActionCleanupFn<T> = (value: T) => void;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFunc = (...args: any[]) => any;
@@ -27,12 +27,11 @@ interface ActionErrorResult<T> {
     removeCleanup: () => void,
 }
 
-type ActionResult<T> = ActionSuccessResult<T> | ActionErrorResult<T>
-
+export type ActionResult<T> = ActionSuccessResult<T> | ActionErrorResult<T>
 export interface EffectContext {
     aborted: AbortedFn,
 
-    onAbort(cleanup: CleanupFn): () => void,
+    onAbort(cleanup: AbortFn): () => void,
 
     /**
      * 返回一个子 controller, effectController 被 abort 时，也会 abort 子 controller
@@ -41,11 +40,13 @@ export interface EffectContext {
      */
     createController: (options?: EffectControllerOptions) => EffectController,
 
-    action<T>(action: () => Promise<T> | T, cleanup?: CleanupFn): Promise<ActionResult<T>>
+    action: <RET>(action: () => RET, cleanup?: ActionCleanupFn<RET>) => ActionResult<RET>
+
+    asyncAction: <RET>(action: () => PromiseLike<RET>, cleanup?: ActionCleanupFn<RET>) => Promise<ActionResult<RET>>
 }
 
 export class EffectController implements EffectContext {
-    private readonly cleanupCallbacks: CleanupFn[] = [];
+    private readonly cleanupCallbacks: AbortFn[] = [];
     private readonly childControllers: EffectController[] = [];
     private _aborted = false;
 
@@ -101,7 +102,7 @@ export class EffectController implements EffectContext {
         return this._aborted;
     }
 
-    onAbort(cleanup: CleanupFn): () => void {
+    onAbort(cleanup: AbortFn): AbortFn {
         const wrappedCleanup = () => {
             cleanup();
             removeCleanup();
@@ -126,14 +127,34 @@ export class EffectController implements EffectContext {
         return this.createChildController(options);
     }
 
-    async action<T>(action: () => Promise<T>, cleanup?: CleanupFn): Promise<ActionResult<T>> {
+    action<RET>(callback: () => RET, cleanup?: ActionCleanupFn<RET>): ActionResult<RET> {
         if (this._aborted) {
             return { aborted: true, removeCleanup: () => void 0 };
         }
 
-        const value = await action();
-        const removeCleanup = this.onAbort(cleanup ?? (() => void 0));
-        return { value, aborted: this._aborted, removeCleanup };
+        const ret = callback()
+
+        const removeCleanup = cleanup ? this.onAbort(() => {
+            cleanup(ret)
+        }) : () => void 0;
+
+        return { aborted: false, value: ret, removeCleanup: removeCleanup };
+    }
+
+    asyncAction<RET>(callback: () => PromiseLike<RET>, cleanup?: ActionCleanupFn<RET>): Promise<ActionResult<RET>> {
+        if (this._aborted) {
+            return Promise.resolve({ aborted: true, removeCleanup: () => void 0 })
+        }
+
+        return callback().then(value => {
+            if (this._aborted) {
+                cleanup?.(value);
+                return { aborted: true, removeCleanup: () => { void 0 } } as ActionErrorResult<RET>
+            };
+
+            const removeCleanup = cleanup ? this.onAbort(() => { cleanup(value) }) : () => void 0;
+            return { value, aborted: false, removeCleanup } as ActionSuccessResult<RET>
+        }) as Promise<ActionResult<RET>>
     }
 }
 

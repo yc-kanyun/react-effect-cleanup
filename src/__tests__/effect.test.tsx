@@ -128,7 +128,7 @@ describe('abort 的行为', () => {
 
     test('用 action 来同时创建副作用和取消副作用', async () => {
         let count = 0;
-        await ctrl.action(async () => {
+        await ctrl.asyncAction(async () => {
             await delay(10).then(() => {
                 count += 1;
             })
@@ -147,12 +147,12 @@ describe('abort 的行为', () => {
         const trace = vitest.fn()
 
         async function action() {
-            await ctrl.action(async () => {
+            await ctrl.asyncAction(async () => {
                 await delay(100);
                 trace('firstAction')
             })
 
-            await ctrl.action(async () => {
+            await ctrl.asyncAction(async () => {
                 await delay(100);
                 trace('secondAction')
             })
@@ -197,5 +197,26 @@ describe('abort 的行为', () => {
         ctrl.abort()
 
         expect(() => ctrl.createController()).toThrow('abort')
+    })
+
+    test('action 中创建的资源，cleanup 应该有办法拿到', () => {
+        vitest.useFakeTimers()
+        const trace = vitest.fn()
+
+        ctrl.action(() => {
+            const timer = setTimeout(() => {
+                trace('action')
+            }, 100)
+
+            return timer;
+        }, (timer) => {
+            clearTimeout(timer)
+        })
+
+        ctrl.abort()
+        vitest.runAllTimers()
+
+        expect(trace).not.toBeCalled()
+        vitest.useRealTimers()
     })
 })

@@ -14,54 +14,40 @@ export interface AppContext {
 /**
  * 在 Loading 状态时展示一个 toast，并在 loading 成功后 1000ms 后自动关闭
  * 
- * @param pageEffectContext 
+ * @param ctx 
  * @param userStore 
  */
-function setupLoadingToastWithPerfectCleanup(pageEffectContext: EffectContext, userStore: ReturnType<typeof createUserStore>) {
+function setupLoadingToastWithPerfectCleanup(ctx: EffectContext, userStore: ReturnType<typeof createUserStore>) {
     let loadingToastId: string | null = null;
-    // 切换页面时立即取消 toast
-    pageEffectContext.onAbort(() => {
+
+    ctx.action(() => {
+        return userStore.subscribe(state => {
+            if (state._loading && !loadingToastId) {
+                loadingToastId = toast.loading('Loading...')
+            }
+
+            if (!state._loading && loadingToastId) {
+                const currToastId = loadingToastId
+                loadingToastId = null
+
+                ctx.action(() => {
+                    const timer = setTimeout(() => {
+                        toast.dismiss(currToastId)
+                    }, 1000)
+
+                    return timer;
+                }, (timer) => {
+                    clearTimeout(timer)
+                })
+            }
+        })
+    }, (unsubscribe) => {
+        unsubscribe()
+
         if (loadingToastId) {
             toast.dismiss(loadingToastId)
         }
     })
-
-    pageEffectContext.onAbort(userStore.subscribe(state => {
-        if (state._loading && !loadingToastId) {
-            loadingToastId = toast.loading('Loading...')
-        }
-
-        if (!state._loading && loadingToastId) {
-            const currToastId = loadingToastId
-            loadingToastId = null
-
-            const timer = setTimeout(() => {
-                toast.dismiss(currToastId)
-            }, 1000)
-            pageEffectContext.onAbort(() => {
-                clearTimeout(timer)
-            })
-        }
-    }))
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function setupLoadingToastWithoutCleanup(ctx: EffectContext, userStore: ReturnType<typeof createUserStore>) {
-    let loadingToastId: string | null = null;
-    ctx.onAbort(userStore.subscribe(state => {
-        if (state._loading && !loadingToastId) {
-            loadingToastId = toast.loading('Loading...')
-        }
-
-        if (!state._loading && loadingToastId) {
-            const currToastId = loadingToastId
-            setTimeout(() => {
-                toast.dismiss(currToastId)
-            }, 1000)
-
-            loadingToastId = null
-        }
-    }))
 }
 
 export function setupApp(): AppContext {

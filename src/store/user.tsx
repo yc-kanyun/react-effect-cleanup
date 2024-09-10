@@ -12,7 +12,7 @@ export function createUserStore() {
         name: '',
         _loading: false,
         fetch: async (ctx) => {
-            const { value, removeCleanup, aborted } = await ctx.action(async () => {
+            const { value, aborted, removeCleanup } = await ctx.asyncAction(async () => {
                 set({ _loading: true })
 
                 const res = await fetch('/api/users/current');
