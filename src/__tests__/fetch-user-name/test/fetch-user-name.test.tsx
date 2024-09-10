@@ -1,4 +1,4 @@
-import { setupApp } from "../setup";
+import { setupApp } from "../src/setup";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { StrictMode } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";

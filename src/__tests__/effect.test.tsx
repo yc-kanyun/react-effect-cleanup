@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vitest } from "vitest";
-import { EffectController, createAbortedController, createAbortSwitchWrapper, EffectTransaction } from "../effect";
+import { EffectController, createAbortedController, EffectTransaction } from "../effect";
 import { delay } from "msw";
+import { createAbortSwitchWrapper } from "../effect-util";
 
 describe('EffectController 核心行为', () => {
     let ctrl: EffectController;

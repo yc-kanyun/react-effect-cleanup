@@ -1,6 +1,6 @@
 import { createContext, FC, ReactNode } from "react";
-import { EffectContext } from "../effect";
 import { createUserStore } from "./user";
+import { EffectContext } from "../../../../effect";
 
 export interface RootContext {
     userStore: ReturnType<typeof createUserStore>,

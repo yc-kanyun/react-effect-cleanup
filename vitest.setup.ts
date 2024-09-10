@@ -1,5 +1,5 @@
 import { afterEach } from "vitest";
-import { server } from "./src/mocks/server";
+import { server } from "./src/__tests__/fetch-user-name/src/mocks/server";
 import { beforeAll, afterAll, beforeEach, vi } from "vitest";
 
 beforeAll(() => {

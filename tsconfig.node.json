@@ -19,8 +19,6 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": [
-    "vite.config.ts",
-    "uno.config.ts",
     "vitest.config.ts",
     "vitest.setup.ts"
   ]

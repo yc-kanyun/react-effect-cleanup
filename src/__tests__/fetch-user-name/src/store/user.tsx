@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { EffectContext, EffectTransaction } from "../effect";
+import { EffectContext, EffectTransaction } from "../../../../effect";
 
 export interface UserState {
     name: string,
