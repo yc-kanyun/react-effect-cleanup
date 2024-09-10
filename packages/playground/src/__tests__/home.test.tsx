@@ -30,5 +30,6 @@ describe('Home 页面', () => {
         })
 
         expect(await screen.findByText('Foo Page')).toBeTruthy()
+        expect(appContext.userStore.getState()._loading).toBeFalsy()
     })
 })

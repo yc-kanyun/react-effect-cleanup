@@ -14,11 +14,13 @@ export function createUserStore() {
         fetch: async (ctx) => {
             const txn = new EffectTransaction(ctx)
             const { value, aborted, removeCleanup } = await txn.actAsync(async () => {
+                console.log('set loading')
                 set({ _loading: true })
 
                 const res = await fetch('/api/users/current');
                 return await res.json() as UserState
             }, () => {
+                console.log('set loading false')
                 set({ _loading: false })
             })
 

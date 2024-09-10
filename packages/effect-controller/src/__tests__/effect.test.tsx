@@ -148,6 +148,16 @@ describe('EffectController 核心行为', () => {
 
         expect(() => ctrl.createController()).toThrow('abort')
     })
+
+    test('在 abort 过程中，不能新增 onAbort', () => {
+        const trace = vitest.fn()
+        ctrl.onAbort(() => {
+            ctrl.onAbort(() => { trace('inner') })
+        })
+
+        expect(() => { ctrl.abort() }).toThrow()
+        expect(trace).not.toBeCalled()
+    })
 })
 
 describe('测试 EffectTransaction', () => {

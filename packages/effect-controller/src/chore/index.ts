@@ -52,11 +52,16 @@ export class EffectController implements EffectContext {
         }
         this.childControllers.length = 0;
 
+        console.log('before abort length', this.cleanupCallbacks.length)
         for (let i = this.cleanupCallbacks.length - 1; i >= 0; i--) {
+            console.log('before cb', this.cleanupCallbacks[i])
             const cb = this.cleanupCallbacks[i];
             cb();
+            console.log('cb', cb)
+            console.log('after cb, length', this.cleanupCallbacks.length)
         }
 
+        console.log('after abort length', this.cleanupCallbacks.length)
         if (this.cleanupCallbacks.length > 0) {
             throw new Error('cleanup callbacks not empty');
         }
@@ -75,10 +80,13 @@ export class EffectController implements EffectContext {
         };
 
         const removeCleanup = () => {
+            console.log('before remove length', this.cleanupCallbacks.length)
             const idx = this.cleanupCallbacks.indexOf(wrappedCleanup);
+            console.log('removeCleanup, idx=', idx)
             if (idx >= 0) {
                 this.cleanupCallbacks.splice(idx, 1);
             }
+            console.log('after remove length', this.cleanupCallbacks.length)
         };
 
         this.cleanupCallbacks.push(wrappedCleanup);
@@ -96,38 +104,39 @@ export class EffectController implements EffectContext {
 }
 
 export class EffectTransaction {
-    private readonly context: EffectContext;
+    private readonly _context: EffectContext;
 
     constructor(context: EffectContext) {
-        this.context = context;
+        this._context = context;
     }
 
     act<RET>(callback: () => RET, cleanup?: ActionCleanupFn<RET>): ActionResult<RET> {
-        if (this.context.aborted()) {
+        if (this._context.aborted()) {
             return { aborted: true, removeCleanup: () => void 0 };
         }
 
         const ret = callback()
 
-        const removeCleanup = cleanup ? this.context.onAbort(() => {
+        const removeCleanup = cleanup ? this._context.onAbort(() => {
             cleanup(ret)
         }) : () => void 0;
 
         return { aborted: false, value: ret, removeCleanup: removeCleanup };
     }
 
-    actAsync<RET>(callback: () => PromiseLike<RET>, cleanup?: ActionCleanupFn<RET>): Promise<ActionResult<RET>> {
-        if (this.context.aborted()) {
+    actAsync<RET>(callback: () => PromiseLike<RET>, cleanup?: () => void): Promise<ActionResult<RET>> {
+        if (this._context.aborted()) {
             return Promise.resolve({ aborted: true, removeCleanup: () => void 0 })
         }
 
-        return callback().then(value => {
-            if (this.context.aborted()) {
-                cleanup?.(value);
-                return { aborted: true, removeCleanup: () => { void 0 } } as ActionErrorResult<RET>
+        const ret = callback();
+        const removeCleanup = cleanup ? this._context.onAbort(() => { cleanup() }) : () => void 0;
+
+        return ret.then(value => {
+            if (this._context.aborted()) {
+                return { value, aborted: true, removeCleanup } as ActionErrorResult<RET>
             };
 
-            const removeCleanup = cleanup ? this.context.onAbort(() => { cleanup(value) }) : () => void 0;
             return { value, aborted: false, removeCleanup } as ActionSuccessResult<RET>
         }) as Promise<ActionResult<RET>>
     }
@@ -146,7 +155,7 @@ export function createEffectSwitchWrapper<Func extends AnyFunc>(effectContext: E
         }
     })
 
-    const retFunc: EffectSwitchWrapperFn<Func> = (cb: EffectSwitchCallback<Func>) => {
+    return (cb: EffectSwitchCallback<Func>) => {
         return ((...args: Parameters<Func>): ReturnType<Func> => {
             if (currCtrl) {
                 currCtrl.abort();
@@ -157,6 +166,4 @@ export function createEffectSwitchWrapper<Func extends AnyFunc>(effectContext: E
             return cb(currCtrl, ...args);
         }) as Func;
     };
-
-    return retFunc;
 }
