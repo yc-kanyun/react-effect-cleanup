@@ -1,5 +1,5 @@
 import { RouteObject } from "react-router-dom";
-import { EffectContext, EffectController, createAbortedController, createAbortSwitchWrapper } from "./abort";
+import { EffectContext, EffectController, createAbortedController, createAbortSwitchWrapper } from "./effect";
 import { Home } from "./component/home";
 import { createUserStore } from "./store/user";
 import { RootProvider } from "./store/root-context";

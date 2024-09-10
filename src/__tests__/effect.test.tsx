@@ -1,11 +1,15 @@
-import { beforeEach, describe, expect, test, vitest } from "vitest";
-import { EffectController, createAbortedController, createAbortSwitchWrapper } from "../abort";
+import { afterEach, beforeEach, describe, expect, test, vitest } from "vitest";
+import { EffectController, createAbortedController, createAbortSwitchWrapper } from "../effect";
 import { delay } from "msw";
 
 describe('abort 的行为', () => {
     let ctrl: EffectController;
     beforeEach(() => {
         ctrl = createAbortedController();
+    })
+
+    afterEach(() => {
+        ctrl.abort()
     })
 
     test('abort 时应该执行 cleanup 方法', () => {

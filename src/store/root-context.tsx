@@ -1,5 +1,5 @@
 import { createContext, FC, ReactNode } from "react";
-import { EffectContext } from "../abort";
+import { EffectContext } from "../effect";
 import { createUserStore } from "./user";
 
 export interface RootContext {

@@ -31,8 +31,8 @@ type ActionResult<T> = ActionSuccessResult<T> | ActionErrorResult<T>
 
 export interface EffectContext {
     aborted: AbortedFn,
+
     onAbort(cleanup: CleanupFn): () => void,
-    race<T>(promise: Promise<T>): Promise<{ value: T, aborted: boolean }>,
 
     /**
      * 返回一个子 controller, effectController 被 abort 时，也会 abort 子 controller
@@ -45,13 +45,20 @@ export interface EffectContext {
 }
 
 export class EffectController implements EffectContext {
-    private readonly options: EffectControllerOptions;
     private readonly cleanupCallbacks: CleanupFn[] = [];
     private readonly childControllers: EffectController[] = [];
     private _aborted = false;
 
     constructor(options?: EffectControllerOptions) {
-        this.options = { ...options }
+        if (options?.debugLabel) {
+            console.log(`[CREATE] id=${options.debugLabel}`)
+        }
+
+        this.onAbort(() => {
+            if (options?.debugLabel) {
+                console.log(`[ABORTED] id=${options.debugLabel}`)
+            }
+        })
     }
 
     private createChildController(options?: EffectControllerOptions): EffectController {
@@ -88,9 +95,6 @@ export class EffectController implements EffectContext {
         }
 
         this._aborted = true;
-        if (this.options.debugLabel) {
-            console.log(`[ABORT], id=${this.options.debugLabel}`);
-        }
     }
 
     aborted(): boolean {
@@ -112,10 +116,6 @@ export class EffectController implements EffectContext {
 
         this.cleanupCallbacks.push(wrappedCleanup);
         return removeCleanup;
-    }
-
-    async race<T>(promise: Promise<T>): Promise<{ value: T; aborted: boolean }> {
-        return { value: await promise, aborted: this._aborted };
     }
 
     createController(options?: EffectControllerOptions): EffectController {

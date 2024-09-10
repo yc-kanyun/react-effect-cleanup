@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { EffectContext } from "../abort";
+import { EffectContext } from "../effect";
 
 export interface UserState {
     name: string,
