@@ -29,8 +29,6 @@ beforeAll(() => {
         advanceTimersByTime: vi.advanceTimersByTime.bind(vi)
     };
 
-    vi.useFakeTimers();
-
     return () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
         (globalThis as any).jest = _jest

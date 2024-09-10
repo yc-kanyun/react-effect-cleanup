@@ -14,18 +14,19 @@ export interface AppContext {
 /**
  * 在 Loading 状态时展示一个 toast，并在 loading 成功后 1000ms 后自动关闭
  * 
- * @param ctx 
+ * @param pageAbortContext 
  * @param userStore 
  */
-function setupLoadingToastWithPerfectCleanup(ctx: AbortContext, userStore: ReturnType<typeof createUserStore>) {
+function setupLoadingToastWithPerfectCleanup(pageAbortContext: AbortContext, userStore: ReturnType<typeof createUserStore>) {
     let loadingToastId: string | null = null;
-    ctx.onAbort(() => {
+    // 切换页面时立即取消 toast
+    pageAbortContext.onAbort(() => {
         if (loadingToastId) {
             toast.dismiss(loadingToastId)
         }
     })
 
-    ctx.onAbort(userStore.subscribe(state => {
+    pageAbortContext.onAbort(userStore.subscribe(state => {
         if (state._loading && !loadingToastId) {
             loadingToastId = toast.loading('Loading...')
         }
@@ -37,13 +38,14 @@ function setupLoadingToastWithPerfectCleanup(ctx: AbortContext, userStore: Retur
             const timer = setTimeout(() => {
                 toast.dismiss(currToastId)
             }, 1000)
-            ctx.onAbort(() => {
+            pageAbortContext.onAbort(() => {
                 clearTimeout(timer)
             })
         }
     }))
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function setupLoadingToastWithoutCleanup(ctx: AbortContext, userStore: ReturnType<typeof createUserStore>) {
     let loadingToastId: string | null = null;
     ctx.onAbort(userStore.subscribe(state => {
@@ -64,19 +66,18 @@ function setupLoadingToastWithoutCleanup(ctx: AbortContext, userStore: ReturnTyp
 
 export function setupApp(): AppContext {
     const userStore = createUserStore()
-    const rootAbortController = createAbortedController('root')
-    const abortContextWrapper = rootAbortController.createAbortSwitchWrapper('route')
+    const rootAbortController = createAbortedController({ debugLabel: 'root' })
+    const abortContextWrapper = rootAbortController.createAbortSwitchWrapper({ debugLabel: 'route' })
 
     function setupHomePage(ctx: AbortContext) {
-        // user name 不阻塞页面加载，局部展示 loading
-        void userStore.getState().fetch(ctx)
-
         // 下面的写法可以阻塞页面加载，让 router 展示全局 loading
         // await userStore.getState().fetch(ctx)
 
         setupLoadingToastWithPerfectCleanup(ctx, userStore)
-        setupLoadingToastWithoutCleanup(ctx, userStore)
+        // setupLoadingToastWithoutCleanup(ctx, userStore)
 
+        // user name 不阻塞页面加载，局部展示 loading
+        void userStore.getState().fetch(ctx)
         return Promise.resolve(null)
     }
 

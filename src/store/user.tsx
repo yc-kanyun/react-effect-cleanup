@@ -12,19 +12,21 @@ export function createUserStore() {
         name: '',
         _loading: false,
         fetch: async (ctx) => {
-            set({ _loading: true })
-            const res = await fetch('/api/users/current')
-            if (ctx.aborted()) {
-                return
-            }
-            set({ _loading: false })
+            const { value, removeCleanup } = await ctx.action(async () => {
+                set({ _loading: true })
 
-            const data = await res.json() as UserState
-            if (ctx.aborted()) {
-                return
-            }
+                const res = await fetch('/api/users/current');
+                return await res.json() as UserState
+            }, () => {
+                set({ _loading: false })
+            })
 
-            set({ name: data.name })
+            await ctx.action(() => {
+                removeCleanup?.()
+                set({ name: value?.name ?? '' })
+            }, () => {
+                set({ name: '' })
+            })
         }
     }))
 }

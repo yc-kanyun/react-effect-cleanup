@@ -8,11 +8,18 @@ export type CleanupFn = () => void;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFunc = (...args: any[]) => any;
+
 export type AbortSwitchCallback<Func extends AnyFunc> = (
     abortContext: AbortContext,
     ...args: Parameters<Func>
 ) => ReturnType<Func>;
 export type AbortSwitchWrapperFn<Func extends AnyFunc> = (cb: AbortSwitchCallback<Func>) => Func
+
+interface ActionResult<T> {
+    aborted: boolean,
+    value?: T,
+    removeCleanup?: () => void,
+}
 
 export interface AbortContext {
     aborted: AbortedFn,
@@ -31,7 +38,9 @@ export interface AbortContext {
      *
      * @returns 被 AbortContext 所管理的 controller
      */
-    createController: (options?: AbortControllerOptions) => AbortController
+    createController: (options?: AbortControllerOptions) => AbortController,
+
+    action<T>(action: () => Promise<T> | T, cleanup?: CleanupFn): Promise<ActionResult<T>>
 }
 
 export interface AbortController extends AbortContext {
@@ -61,6 +70,24 @@ export function createAbortedController(options?: AbortControllerOptions): Abort
         return ctrl;
     }
 
+    function onAbort(cleanup: CleanupFn) {
+        const wrappedCleanup = () => {
+            cleanup();
+            removeCleanup();
+        }
+
+        const removeCleanup = () => {
+            const idx = cleanupCallbacks.indexOf(wrappedCleanup);
+            if (idx >= 0) {
+                cleanupCallbacks.splice(idx, 1)
+            }
+        }
+
+        cleanupCallbacks.push(wrappedCleanup);
+        return removeCleanup;
+    }
+
+
     return {
         abort: () => {
             if (aborted) {
@@ -87,22 +114,7 @@ export function createAbortedController(options?: AbortControllerOptions): Abort
 
         aborted: () => aborted,
 
-        onAbort: (cleanup: CleanupFn) => {
-            const wrappedCleanup = () => {
-                cleanup();
-                removeCleanup();
-            }
-
-            const removeCleanup = () => {
-                const idx = cleanupCallbacks.indexOf(wrappedCleanup);
-                if (idx >= 0) {
-                    cleanupCallbacks.splice(idx, 1)
-                }
-            }
-
-            cleanupCallbacks.push(wrappedCleanup);
-            return removeCleanup;
-        },
+        onAbort,
 
         race: async function <T>(promise: Promise<T>) {
             return { value: await promise, aborted }
@@ -134,6 +146,22 @@ export function createAbortedController(options?: AbortControllerOptions): Abort
 
         createController: (options?: AbortControllerOptions) => {
             return createChildController(options);
+        },
+
+        action: async <T>(action: () => Promise<T>, cleanup?: CleanupFn) => {
+            if (aborted) {
+                return { aborted: true }
+            }
+
+            const value = await action();
+
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            if (!cleanup || aborted) {
+                return { value, aborted: aborted }
+            }
+
+            const removeCleanup = onAbort(cleanup)
+            return { value, aborted, removeCleanup }
         }
     }
 }
