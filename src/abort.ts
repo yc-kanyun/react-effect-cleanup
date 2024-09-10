@@ -15,11 +15,19 @@ export type AbortSwitchCallback<Func extends AnyFunc> = (
 ) => ReturnType<Func>;
 export type AbortSwitchWrapperFn<Func extends AnyFunc> = (cb: AbortSwitchCallback<Func>) => Func
 
-interface ActionResult<T> {
-    aborted: boolean,
-    value?: T,
-    removeCleanup?: () => void,
+interface ActionSuccessResult<T> {
+    aborted: false,
+    value: T,
+    removeCleanup: () => void,
 }
+
+interface ActionErrorResult<T> {
+    aborted: true,
+    value?: T,
+    removeCleanup: () => void,
+}
+
+type ActionResult<T> = ActionSuccessResult<T> | ActionErrorResult<T>
 
 export interface AbortContext {
     aborted: AbortedFn,
@@ -150,17 +158,12 @@ export function createAbortedController(options?: AbortControllerOptions): Abort
 
         action: async <T>(action: () => Promise<T>, cleanup?: CleanupFn) => {
             if (aborted) {
-                return { aborted: true }
+                return { aborted: true, removeCleanup: () => void (0) }
             }
 
             const value = await action();
 
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            if (!cleanup || aborted) {
-                return { value, aborted: aborted }
-            }
-
-            const removeCleanup = onAbort(cleanup)
+            const removeCleanup = onAbort(cleanup ? cleanup : () => void (0))
             return { value, aborted, removeCleanup }
         }
     }

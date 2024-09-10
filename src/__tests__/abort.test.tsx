@@ -122,7 +122,7 @@ describe('abort 的行为', () => {
         expect(ctrl.aborted()).toBe(false)
     })
 
-    test('用 submitAction 来同时创建副作用和取消副作用', async () => {
+    test('用 action 来同时创建副作用和取消副作用', async () => {
         let count = 0;
         await ctrl.action(async () => {
             await delay(10).then(() => {
@@ -133,9 +133,13 @@ describe('abort 的行为', () => {
         })
 
         expect(count).toBe(1)
+
+        ctrl.abort()
+
+        expect(count).toBe(0)
     })
 
-    test('连续创建 action 会自动处理 abort', async () => {
+    test('连续创建 action 会自动处理 aborted，在 abort 之后创建的 action 不会直接，会直接返回', async () => {
         const trace = vitest.fn()
 
         async function action() {
